@@ -252,7 +252,7 @@ function GroupsBoard({ sessionId }: { sessionId: Id<"sessions"> }) {
                           <button
                             key={id}
                             type="button"
-                            className={`chip ${g} ${metIds.has(id) ? "met" : ""} ${fixG === g ? "fixed" : ""}`}
+                            className={`chip ${g} ${metIds.has(id) ? "met" : ""} ${fixG === g ? "pinned" : ""}`}
                             onClick={() => setSheet({ kind: "person", id })}
                           >
                             {name(id)}

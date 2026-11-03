@@ -379,7 +379,7 @@
   .chip.F { background: var(--female-soft); color: var(--female); }
   .chip.met { border-color: var(--warn); }
   .chip.met::after { content: "재회"; font-size: 10px; font-weight: 700; color: var(--warn); background: var(--surface); border-radius: 4px; padding: 0 4px; }
-  .chip.fixed { outline: 2px dashed currentColor; outline-offset: -4px; }
+  .chip.pinned { outline: 2px dashed currentColor; outline-offset: -4px; }
   .chips .none { font-size: 13px; color: var(--sub); align-self: center; }
   .pool { background: var(--surface); border: 1.5px dashed var(--line); border-radius: 14px; padding: 12px 14px; display: flex; flex-direction: column; gap: 10px; }
   .pool h2 { margin: 0; font-size: 13px; color: var(--sub); letter-spacing: 0.05em; font-weight: 700; }
