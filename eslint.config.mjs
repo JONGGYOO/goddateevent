@@ -12,6 +12,8 @@ const eslintConfig = defineConfig([
     "out/**",
     "build/**",
     "next-env.d.ts",
+    // Convex가 생성하는 코드
+    "convex/_generated/**",
   ]),
 ]);
 
