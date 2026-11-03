@@ -1,0 +1,403 @@
+"use client";
+
+import { useRouter, useSearchParams } from "next/navigation";
+import { Suspense, useMemo, useState } from "react";
+import { api } from "@/convex/_generated/api";
+import type { Id } from "@/convex/_generated/dataModel";
+import { useAQ, useToday } from "@/components/admin";
+import { G_OPTIONS, GN, Hl, Loading, Meter, SearchBox, Seg, Stat, pct, type GFilter } from "@/components/kit";
+import { fmtSession } from "@/lib/date";
+import { koCompare, matchAt } from "@/lib/hangul";
+
+type Scope = "event" | "all";
+type SortKey = "name" | "low" | "many";
+
+export default function StatsPage() {
+  return (
+    <Suspense fallback={<Loading />}>
+      <Stats />
+    </Suspense>
+  );
+}
+
+function Stats() {
+  const search = useSearchParams();
+  const router = useRouter();
+  const today = useToday();
+  const events = useAQ(api.events.list, { today });
+  const scope: Scope = search.get("scope") === "all" ? "all" : "event";
+  const [g, setG] = useState<GFilter>("ALL");
+  const [q, setQ] = useState(search.get("q") ?? "");
+  const [sort, setSort] = useState<SortKey>("name");
+  const [eventId, setEventId] = useState<Id<"events"> | null>(null);
+
+  const evId = useMemo(() => {
+    if (!events?.length) return null;
+    if (eventId && events.some((e) => e._id === eventId)) return eventId;
+    return (events.find((e) => e.firstDate && e.firstDate <= today) ?? events[0])._id;
+  }, [events, eventId, today]);
+
+  const setScope = (s: Scope) => {
+    if (s === "event" && sort === "many") setSort("name");
+    router.replace(s === "all" ? "/stats?scope=all" : "/stats", { scroll: false });
+  };
+
+  return (
+    <>
+      <div className="pagehead">
+        <div>
+          <h1>통계</h1>
+          <span className="sub">행사별 회차 출석과 회원별 참여 행사·출석률을 봅니다. 출석률은 지난 회차와 오늘 회차만 계산해요.</span>
+        </div>
+      </div>
+      <div className="controls">
+        <Seg
+          value={scope}
+          onChange={setScope}
+          label="통계 범위"
+          options={[
+            ["event", "행사별"],
+            ["all", "회원 누적"],
+          ]}
+        />
+        {scope === "event" && events && events.length > 0 && (
+          <select className="sel" aria-label="행사" value={evId ?? ""} onChange={(e) => setEventId(e.target.value as Id<"events">)}>
+            {events.map((e) => (
+              <option key={e._id} value={e._id}>
+                제{e.no}회 {e.name}
+              </option>
+            ))}
+          </select>
+        )}
+      </div>
+      {scope === "event" ? (
+        !events ? (
+          <Loading />
+        ) : !evId ? (
+          <div className="empty">
+            <strong>행사가 없어요</strong>
+          </div>
+        ) : (
+          <EventStats eventId={evId} today={today} g={g} setG={setG} q={q} setQ={setQ} sort={sort} setSort={setSort} />
+        )
+      ) : (
+        <MemberStats today={today} g={g} setG={setG} q={q} setQ={setQ} sort={sort} setSort={setSort} />
+      )}
+    </>
+  );
+}
+
+type FilterProps = {
+  g: GFilter;
+  setG: (g: GFilter) => void;
+  q: string;
+  setQ: (q: string) => void;
+  sort: SortKey;
+  setSort: (s: SortKey) => void;
+};
+
+function Filters({ g, setG, q, setQ, sort, setSort, sorts }: FilterProps & { sorts: readonly (readonly [SortKey, string])[] }) {
+  return (
+    <div className="controls">
+      <Seg value={g} options={G_OPTIONS} onChange={setG} label="성별" />
+      <SearchBox value={q} onChange={setQ} placeholder="이름·초성 검색" />
+      <Seg value={sort} options={sorts} onChange={setSort} label="정렬" />
+    </div>
+  );
+}
+
+function EventStats({ eventId, today, ...f }: { eventId: Id<"events">; today: string } & FilterProps) {
+  const data = useAQ(api.stats.byEvent, { eventId });
+  if (data === undefined) return <Loading />;
+  if (data === null) return <div className="empty">행사를 찾을 수 없어요.</div>;
+
+  const { people, sessions } = data;
+  const held = sessions.filter((s) => s.date <= today);
+  const attSets = new Map(sessions.map((s) => [s._id, new Set<string>(s.attended)]));
+  const did = (sid: Id<"sessions">, mid: string) => attSets.get(sid)?.has(mid) ?? false;
+  const tot = held.length * people.length;
+  const got = held.reduce((n, s) => n + s.attended.length, 0);
+  const carAvg = held.length ? held.reduce((n, s) => n + s.cars, 0) / held.length : null;
+  const rateG = (g: "M" | "F") => {
+    const L = people.filter((p) => p.gender === g);
+    const t = held.length * L.length;
+    return t ? held.reduce((n, s) => n + L.filter((p) => did(s._id, p.memberId)).length, 0) / t : null;
+  };
+  const mN = people.filter((p) => p.gender === "M").length;
+  const qn = f.q.replace(/\s+/g, "");
+
+  const rows = people
+    .filter((p) => (f.g === "ALL" || p.gender === f.g) && (!qn || matchAt(p.name, qn) >= 0))
+    .map((p) => {
+      const a = held.filter((s) => did(s._id, p.memberId)).length;
+      return { ...p, a, rate: held.length ? a / held.length : null };
+    })
+    .sort((x, y) =>
+      f.sort === "low"
+        ? (x.rate ?? 2) - (y.rate ?? 2) || koCompare(x.name, y.name)
+        : x.gender === y.gender
+          ? koCompare(x.name, y.name)
+          : x.gender === "M"
+            ? -1
+            : 1,
+    );
+
+  return (
+    <div className="stack">
+      <section className="summary">
+        <Stat label="진행한 회차" value={held.length} total={sessions.length} />
+        <Stat label="평균 출석률" value={pct(tot ? got / tot : null)} ratio={tot ? got / tot : 0} />
+        <Stat label={`형제 ${mN}명`} value={pct(rateG("M"))} ratio={rateG("M") ?? 0} g="M" />
+        <Stat label={`자매 ${people.length - mN}명`} value={pct(rateG("F"))} ratio={rateG("F") ?? 0} g="F" />
+        <Stat label="회차당 차량" value={carAvg == null ? "-" : carAvg.toFixed(1)} unit="대" />
+      </section>
+
+      <h2 className="sectitle">회차별 출석</h2>
+      <div className="tablewrap">
+        <table style={{ minWidth: 640 }}>
+          <thead>
+            <tr>
+              <th>회차</th>
+              <th>날짜</th>
+              <th>형제</th>
+              <th>자매</th>
+              <th>전체 출석률</th>
+              <th>차량 도착</th>
+            </tr>
+          </thead>
+          <tbody>
+            {sessions.length ? (
+              sessions.map((s) => {
+                if (s.date > today)
+                  return (
+                    <tr key={s._id}>
+                      <td>
+                        <strong>{s.no}회차</strong>
+                      </td>
+                      <td>{fmtSession(s.date)}</td>
+                      <td colSpan={4} className="muted">
+                        예정
+                      </td>
+                    </tr>
+                  );
+                const c = (g: "M" | "F") => {
+                  const L = people.filter((p) => p.gender === g);
+                  return `${L.filter((p) => did(s._id, p.memberId)).length}/${L.length}`;
+                };
+                return (
+                  <tr key={s._id}>
+                    <td>
+                      <strong>{s.no}회차</strong>
+                    </td>
+                    <td>
+                      {fmtSession(s.date)} {s.date === today && <span className="pill ok">오늘</span>}
+                    </td>
+                    <td className="num">{c("M")}</td>
+                    <td className="num">{c("F")}</td>
+                    <td>
+                      <Meter ratio={people.length ? s.attended.length / people.length : null} />
+                    </td>
+                    <td className="num">{s.cars}대</td>
+                  </tr>
+                );
+              })
+            ) : (
+              <tr>
+                <td colSpan={6} className="muted">
+                  회차가 없어요.
+                </td>
+              </tr>
+            )}
+          </tbody>
+        </table>
+      </div>
+
+      <h2 className="sectitle">참여자별 출석</h2>
+      <Filters
+        {...f}
+        sorts={[
+          ["name", "이름순"],
+          ["low", "출석률 낮은 순"],
+        ]}
+      />
+      <div className="tablewrap">
+        <table style={{ minWidth: 600 }}>
+          <thead>
+            <tr>
+              <th>이름</th>
+              <th>명찰</th>
+              <th>
+                <span className="marks">
+                  {sessions.map((s) => (
+                    <span key={s._id} className="mk f" title={fmtSession(s.date)}>
+                      {s.no}
+                    </span>
+                  ))}
+                </span>
+              </th>
+              <th>출석</th>
+              <th>출석률</th>
+            </tr>
+          </thead>
+          <tbody>
+            {rows.length ? (
+              rows.map((p) => (
+                <tr key={p.memberId}>
+                  <td>
+                    <span className={`dot ${p.gender}`} />
+                    <span className="nm">
+                      <Hl text={p.name} q={qn} />
+                    </span>
+                  </td>
+                  <td className="num muted">{p.nameTagNo}</td>
+                  <td>
+                    <span className="marks">
+                      {sessions.map((s) =>
+                        s.date > today ? (
+                          <span key={s._id} className="mk f">
+                            ·
+                          </span>
+                        ) : did(s._id, p.memberId) ? (
+                          <span key={s._id} className="mk y">
+                            ✓
+                          </span>
+                        ) : (
+                          <span key={s._id} className="mk n">
+                            ✕
+                          </span>
+                        ),
+                      )}
+                    </span>
+                  </td>
+                  <td className="num">
+                    {p.a}/{held.length}
+                  </td>
+                  <td>
+                    <Meter ratio={p.rate} />
+                  </td>
+                </tr>
+              ))
+            ) : (
+              <tr>
+                <td colSpan={5} className="muted">
+                  해당하는 참여자가 없어요.
+                </td>
+              </tr>
+            )}
+          </tbody>
+        </table>
+      </div>
+      <p className="hint" style={{ margin: 0 }}>
+        <span className="mk y">✓</span> 출석 · <span className="mk n">✕</span> 결석 · <span className="mk f">·</span> 예정 회차
+      </p>
+    </div>
+  );
+}
+
+function MemberStats({ today, ...f }: { today: string } & FilterProps) {
+  const data = useAQ(api.stats.byMember, {});
+  const qn = f.q.replace(/\s+/g, "");
+  const rows = useMemo(() => {
+    if (!data) return [];
+    const evs = data.events.map((e) => ({
+      ...e,
+      members: new Set<string>(e.memberIds),
+      held: e.sessions.filter((s) => s.date <= today).map((s) => new Set<string>(s.attended)),
+    }));
+    const nm = (x: { name: string }, y: { name: string }) => koCompare(x.name, y.name);
+    return data.members
+      .filter((m) => (f.g === "ALL" || m.gender === f.g) && (!qn || matchAt(m.name, qn) >= 0))
+      .map((m) => {
+        const hs = evs.filter((e) => e.members.has(m._id)).map((e) => ({ no: e.no, marks: e.held.map((set) => set.has(m._id)) }));
+        const t = hs.reduce((n, x) => n + x.marks.length, 0);
+        const a = hs.reduce((n, x) => n + x.marks.filter(Boolean).length, 0);
+        return { ...m, hs, t, a, rate: t ? a / t : null };
+      })
+      .sort((x, y) =>
+        f.sort === "many" ? y.hs.length - x.hs.length || nm(x, y) : f.sort === "low" ? (x.rate ?? 2) - (y.rate ?? 2) || nm(x, y) : nm(x, y),
+      );
+  }, [data, today, f.g, qn, f.sort]);
+
+  if (!data) return <Loading />;
+  return (
+    <div className="stack">
+      <p className="hint" style={{ margin: 0 }}>
+        모든 행사를 합친 회원별 참여 이력과 누적 출석률입니다.
+      </p>
+      <Filters
+        {...f}
+        sorts={[
+          ["name", "이름순"],
+          ["many", "참여 많은 순"],
+          ["low", "출석률 낮은 순"],
+        ]}
+      />
+      <div className="tablewrap">
+        <table style={{ minWidth: 720 }}>
+          <thead>
+            <tr>
+              <th>이름</th>
+              <th>성별</th>
+              <th>참여 행사와 회차별 출석</th>
+              <th>누적 출석</th>
+              <th>출석률</th>
+            </tr>
+          </thead>
+          <tbody>
+            {rows.length ? (
+              rows.map((m) => (
+                <tr key={m._id}>
+                  <td>
+                    <span className={`dot ${m.gender}`} />
+                    <span className="nm">
+                      <Hl text={m.name} q={qn} />
+                    </span>
+                  </td>
+                  <td>
+                    <span className={`pill ${m.gender}`}>{GN(m.gender)}</span>
+                  </td>
+                  <td style={{ whiteSpace: "normal" }}>
+                    {m.hs.length ? (
+                      <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+                        {m.hs.map((x) => (
+                          <span key={x.no} style={{ display: "flex", gap: 8, alignItems: "center" }}>
+                            <span className="pill ac" style={{ minWidth: 52, textAlign: "center" }}>
+                              제{x.no}회
+                            </span>
+                            <span className="marks">
+                              {x.marks.length ? (
+                                x.marks.map((v, i) => (
+                                  <span key={i} className={`mk ${v ? "y" : "n"}`}>
+                                    {v ? "✓" : "✕"}
+                                  </span>
+                                ))
+                              ) : (
+                                <span className="hint">진행 전</span>
+                              )}
+                            </span>
+                          </span>
+                        ))}
+                      </div>
+                    ) : (
+                      <span className="muted">참여 없음</span>
+                    )}
+                  </td>
+                  <td className="num">{m.t ? `${m.a}/${m.t}` : "-"}</td>
+                  <td>
+                    <Meter ratio={m.rate} />
+                  </td>
+                </tr>
+              ))
+            ) : (
+              <tr>
+                <td colSpan={5} className="muted">
+                  해당하는 회원이 없어요.
+                </td>
+              </tr>
+            )}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  );
+}
