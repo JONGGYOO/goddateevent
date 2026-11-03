@@ -352,6 +352,14 @@
   .notice.lockbar p { color: var(--ok); }
   .settings.locked .set { opacity: 0.5; pointer-events: none; }
   .chip[aria-disabled="true"] { cursor: default; }
+  .kindbar { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; }
+  .kindbar > .lbl { font-size: 13px; color: var(--sub); font-weight: 600; }
+  .kindbar .sess.add { border-style: dashed; }
+  .kindadd { flex-basis: 100%; display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+  .kindadd .tin { flex: 1 1 200px; max-width: 320px; }
+  .kindsug { flex-basis: 100%; display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+  .notice.kindinfo { flex-direction: row; align-items: center; justify-content: space-between; flex-wrap: wrap; background: var(--brand-soft); }
+  .notice.kindinfo.err { background: var(--err-soft); }
 
   /* 조 편성 */
   .settings { background: var(--surface); border: 1px solid var(--line); border-radius: 14px; padding: 14px 16px; display: flex; flex-wrap: wrap; gap: 14px 22px; align-items: flex-end; box-shadow: var(--shadow); }

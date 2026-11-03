@@ -110,7 +110,10 @@ export default function SessionsTab() {
                     <span>
                       출석 {s.attended}/{overview.participantCount}명
                     </span>
-                    <span>{s.groupCount ? `조 편성 ${s.groupCount}개 조` : "조 미편성"}</span>
+                    <span>
+                      {s.groupCount ? `기본 조 ${s.groupCount}개${s.groupLocked ? " ✓" : ""}` : "기본 조 미편성"}
+                      {s.kinds.map((k) => ` · ${k.label} ${k.groupCount}개${k.locked ? " ✓" : ""}`).join("")}
+                    </span>
                     <span>차량 {s.cars}대</span>
                   </div>
                 </div>

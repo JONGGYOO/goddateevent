@@ -26,7 +26,10 @@ export default function CodesPage() {
       <div className="pagehead">
         <div>
           <h1>공통코드</h1>
-          <span className="sub">화면에서 골라 쓰는 항목을 그룹별로 관리합니다. 출석체크 메모는 ‘출석 메모’ 그룹의 코드를 씁니다.</span>
+          <span className="sub">
+            화면에서 골라 쓰는 항목을 그룹별로 관리합니다. 출석체크 메모는 ‘출석 메모’, 조 편성의 추가 조(식사조·게임조 등)는 ‘조 종류’ 그룹의
+            코드를 씁니다.
+          </span>
         </div>
       </div>
       {!data ? (
@@ -342,10 +345,16 @@ function CodeRow({ code, first, last }: { code: CodeData; first: boolean; last: 
           <div className="t1">{mode === "del" ? `‘${code.label}’을 삭제할까요?` : code.label}</div>
           <div className="t2">
             {mode === "del" ? (
-              <span>{code.used ? `메모 ${code.used}건에서도 빠져요. 숨기기만 하려면 ‘사용 안 함’을 쓰세요.` : "아직 쓰인 적 없는 코드예요."}</span>
+              <span>
+                {code.usedAsKind
+                  ? `${code.usedAsKind}개 회차 조 편성에서 쓰고 있어 지울 수 없어요. ‘사용 안 함’을 쓰세요.`
+                  : code.used
+                    ? `메모 ${code.used}건에서도 빠져요. 숨기기만 하려면 ‘사용 안 함’을 쓰세요.`
+                    : "아직 쓰인 적 없는 코드예요."}
+              </span>
             ) : (
               <>
-                <span>{code.used ? `메모 ${code.used}건` : "쓰인 적 없음"}</span>
+                <span>{code.usedAsKind ? `조 편성 ${code.usedAsKind}개 회차` : code.used ? `메모 ${code.used}건` : "쓰인 적 없음"}</span>
                 {!code.active && <span className="pill off">사용 안 함</span>}
               </>
             )}

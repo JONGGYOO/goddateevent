@@ -40,9 +40,10 @@ export default defineSchema({
     .index("by_member", ["memberId"])
     .index("by_event_member", ["eventId", "memberId"]),
 
-  // 회차별 조 편성 (회차당 1개 문서)
+  // 회차별 조 편성. kindId 없음 = 기본 조(회차당 1개), kindId = 추가 조 종류(공통코드 GROUP_KIND, 대상은 그 회차 출석자)
   groupings: defineTable({
     sessionId: v.id("sessions"),
+    kindId: v.optional(v.id("codes")),
     groupCount: v.number(), // 2~12
     assignments: v.array(v.object({ memberId: v.id("members"), group: v.number() })), // group: 0부터
     locked: v.optional(v.boolean()), // 조 확정: true면 편성 저장 불가

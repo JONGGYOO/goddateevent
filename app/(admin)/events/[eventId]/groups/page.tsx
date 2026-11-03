@@ -21,6 +21,7 @@ import {
 } from "@/lib/grouping";
 import { koCompare } from "@/lib/hangul";
 import { errInfo } from "@/lib/errors";
+import { GROUP_KIND, MAX_LABEL } from "@/lib/codes";
 
 const HINT: Record<GroupMode, string> = {
   all: "남녀 모두 새로 섞습니다. 조마다 남녀 인원이 고르게 들어갑니다.",
@@ -34,11 +35,26 @@ type Sheet = { kind: "person"; id: string } | { kind: "add"; gi: number; g: G } 
 export default function GroupsTab() {
   const { session, overview } = useEvent();
   if (!session || !overview.participantCount) return <NeedsSetup />;
-  return <GroupsBoard key={session._id} sessionId={session._id} />;
+  return <GroupsArea key={session._id} sessionId={session._id} />;
 }
 
-function GroupsBoard({ sessionId }: { sessionId: Id<"sessions"> }) {
-  const data = useAQ(api.groupings.getBySession, { sessionId });
+/** 기본 조 + 추가 조 종류(식사조·게임조 등) 중 무엇을 편성할지 고른다 */
+function GroupsArea({ sessionId }: { sessionId: Id<"sessions"> }) {
+  const [kindId, setKindId] = useState<Id<"codes"> | null>(null);
+  return <GroupsBoard key={kindId ?? "base"} sessionId={sessionId} kindId={kindId} setKindId={setKindId} />;
+}
+
+function GroupsBoard({
+  sessionId,
+  kindId,
+  setKindId,
+}: {
+  sessionId: Id<"sessions">;
+  kindId: Id<"codes"> | null;
+  setKindId: (id: Id<"codes"> | null) => void;
+}) {
+  const raw = useAQ(api.groupings.getBySession, { sessionId, kindId: kindId ?? undefined });
+  const data = raw && !raw.missingKind ? raw : raw === null ? null : undefined;
   const saveM = useAM(api.groupings.save);
   const setLockedM = useAM(api.groupings.setLocked);
   const [lockBusy, setLockBusy] = useState(false);
@@ -78,9 +94,20 @@ function GroupsBoard({ sessionId }: { sessionId: Id<"sessions"> }) {
     };
   }, [data, people.length]);
 
+  if (raw?.missingKind)
+    return (
+      <div className="empty">
+        <strong>이 조 종류가 지워졌어요</strong>
+        <button className="btn" type="button" onClick={() => setKindId(null)}>
+          기본 조로 가기
+        </button>
+      </div>
+    );
   if (!data || !server) return data === null ? <div className="empty">회차를 찾을 수 없어요.</div> : <Loading />;
 
   const locked = !!data.grouping?.locked;
+  const kindLabel = data.kind?.label ?? "기본 조";
+  const what = `${data.session.no}회차 ${kindLabel}`;
   const cur = local ?? server;
   const { k, assign } = cur;
   const gender = (id: string) => byId.get(id)?.gender ?? "M";
@@ -88,7 +115,7 @@ function GroupsBoard({ sessionId }: { sessionId: Id<"sessions"> }) {
   const fixG: G | null = mode === "fixM" ? "M" : mode === "fixF" ? "F" : null;
   const gm = groupsOf(assign, ids, k);
   const score = scoreGrouping(people, k, assign, met);
-  const prev = data.prior[data.prior.length - 1];
+  const prev = data.prior.filter((p) => p.same).at(-1);
 
   /** 변경 즉시 저장 (자동 저장). 저장이 끝나기 전에는 화면에 바로 보이도록 local로 유지 */
   const commit = async (next: Draft) => {
@@ -97,6 +124,7 @@ function GroupsBoard({ sessionId }: { sessionId: Id<"sessions"> }) {
     try {
       await saveM({
         sessionId,
+        kindId: kindId ?? undefined,
         groupCount: next.k,
         assignments: Object.entries(next.assign)
           .filter(([, g]) => g != null && g >= 0 && g < next.k)
@@ -115,11 +143,9 @@ function GroupsBoard({ sessionId }: { sessionId: Id<"sessions"> }) {
   const lock = async (v: boolean) => {
     setLockBusy(true);
     try {
-      await setLockedM({ sessionId, locked: v });
+      await setLockedM({ sessionId, kindId: kindId ?? undefined, locked: v });
       setSheet(null);
-      toast(
-        v ? `${data.session.no}회차 조를 확정했어요. 고치려면 ‘확정 취소’를 누르세요.` : "확정을 취소했어요. 이제 조를 고칠 수 있어요.",
-      );
+      toast(v ? `${what}를 확정했어요. 고치려면 ‘확정 취소’를 누르세요.` : "확정을 취소했어요. 이제 조를 고칠 수 있어요.");
     } catch (e) {
       toast(errInfo(e).message);
     } finally {
@@ -171,9 +197,13 @@ function GroupsBoard({ sessionId }: { sessionId: Id<"sessions"> }) {
   return (
     <>
       <SessBar />
+      <KindBar sessionId={sessionId} cur={kindId} kinds={data.kinds} onPick={setKindId} />
+      {data.kind && (
+        <KindInfo sessionId={sessionId} kind={data.kind} attended={ids.length} total={data.participantCount} onRemoved={() => setKindId(null)} />
+      )}
       {locked && (
         <div className="notice lockbar">
-          <p>{data.session.no}회차 조가 확정돼 있어요. 바꾸려면 ‘확정 취소’를 누르세요.</p>
+          <p>{what}가 확정돼 있어요. 바꾸려면 ‘확정 취소’를 누르세요.</p>
           <button className="btn ghost sm" type="button" disabled={lockBusy} onClick={() => lock(false)}>
             확정 취소
           </button>
@@ -208,7 +238,8 @@ function GroupsBoard({ sessionId }: { sessionId: Id<"sessions"> }) {
         <div className="set">
           <span className="lbl">겹침 방지</span>
           <label className="chk">
-            <input type="checkbox" checked={avoid} onChange={(e) => setAvoid(e.target.checked)} /> 이전 회차에 같은 조였던 이성 피하기
+            <input type="checkbox" checked={avoid} onChange={(e) => setAvoid(e.target.checked)} />{" "}
+            {data.kind ? "기본 조·이전 회차에서 같은 조였던 이성 피하기" : "이전 회차에 같은 조였던 이성 피하기"}
           </label>
         </div>
         <div className="go">
@@ -225,10 +256,10 @@ function GroupsBoard({ sessionId }: { sessionId: Id<"sessions"> }) {
                       k: prev.groupCount,
                       assign: Object.fromEntries(prev.assignments.map((a) => [a.memberId, a.group])),
                     });
-                    toast(`${prev.no}회차 편성을 불러왔어요`);
+                    toast(`${prev.label} 편성을 불러왔어요`);
                   }}
                 >
-                  {prev.no}회차 편성 불러오기
+                  {prev.label} 불러오기
                 </button>
               )}
               <button
@@ -236,7 +267,7 @@ function GroupsBoard({ sessionId }: { sessionId: Id<"sessions"> }) {
                 type="button"
                 onClick={() => {
                   commit({ k, assign: {} });
-                  toast("이 회차 조를 비웠어요");
+                  toast(`${what}를 비웠어요`);
                 }}
               >
                 모두 비우기
@@ -258,8 +289,8 @@ function GroupsBoard({ sessionId }: { sessionId: Id<"sessions"> }) {
         <p className="modehint">
           {HINT[mode]}{" "}
           {data.prior.length
-            ? `겹침 비교 대상: ${data.prior.map((x) => `${x.no}회차`).join(", ")}.`
-            : "이전 회차 편성이 없어 첫 편성입니다."}
+            ? `겹침 비교 대상: ${data.prior.map((x) => x.label).join(", ")}.`
+            : "비교할 이전 편성이 없어 첫 편성입니다."}
         </p>
       </section>
 
@@ -361,7 +392,9 @@ function GroupsBoard({ sessionId }: { sessionId: Id<"sessions"> }) {
             {!locked && <span className="hint">이름을 누르면 넣을 조를 고를 수 있어요.</span>}
           </>
         ) : (
-          <h2>미배정 없음 · 참여자 {ids.length}명 모두 배정됨</h2>
+          <h2>
+            미배정 없음 · {data.kind ? "출석자" : "참여자"} {ids.length}명 모두 배정됨
+          </h2>
         )}
       </section>
       <p className="hint" style={{ margin: 0 }}>
@@ -376,7 +409,7 @@ function GroupsBoard({ sessionId }: { sessionId: Id<"sessions"> }) {
           gender={gender(sheet.id)}
           k={k}
           current={isAssigned(assign, sheet.id, k) ? (assign[sheet.id] as number) : null}
-          history={priors.filter((p) => p.assign[sheet.id] != null).map((p) => `${p.no}회차 ${(p.assign[sheet.id] as number) + 1}조`)}
+          history={priors.flatMap((p, i) => (p.assign[sheet.id] != null ? [`${data.prior[i].label} ${(p.assign[sheet.id] as number) + 1}조`] : []))}
           metNames={(gi) => metInGroup(sheet.id, gi).map(name)}
           onMove={(to) => {
             commit({ k, assign: { ...assign, [sheet.id]: to } });
@@ -526,5 +559,166 @@ function AddSheet({
         )}
       </div>
     </Modal>
+  );
+}
+
+type KindRow = { kindId: Id<"codes">; label: string; groupCount: number; locked: boolean };
+
+/** 조 종류 선택 줄: 기본 조 + 이 회차에 추가한 종류 + 새 종류 추가(글자 입력, 공통코드 GROUP_KIND에서 추천) */
+function KindBar({
+  sessionId,
+  cur,
+  kinds,
+  onPick,
+}: {
+  sessionId: Id<"sessions">;
+  cur: Id<"codes"> | null;
+  kinds: KindRow[];
+  onPick: (id: Id<"codes"> | null) => void;
+}) {
+  const codes = useAQ(api.codes.byKey, { key: GROUP_KIND });
+  const addKind = useAM(api.groupings.addKind);
+  const [adding, setAdding] = useState(false);
+  const [label, setLabel] = useState("");
+  const [err, setErr] = useState("");
+  const [busy, setBusy] = useState(false);
+  const have = new Set(kinds.map((k) => k.label));
+  const suggest = (codes?.codes ?? []).filter((c) => c.active && !have.has(c.label));
+
+  const add = async (text: string) => {
+    if (!text.trim()) return setErr("조 종류 이름을 적어 주세요. (예: 식사조)");
+    setBusy(true);
+    setErr("");
+    try {
+      const r = await addKind({ sessionId, label: text });
+      toast(`‘${r.label}’을 추가했어요. 대상은 이 회차 출석자예요.`);
+      setLabel("");
+      setAdding(false);
+      onPick(r._id);
+    } catch (e) {
+      setErr(errInfo(e).message);
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <div className="kindbar">
+      <span className="lbl">조 종류</span>
+      <div className="sessbar">
+        <button type="button" className="sess" aria-current={cur === null} onClick={() => onPick(null)}>
+          기본 조
+        </button>
+        {kinds.map((k) => (
+          <button key={k.kindId} type="button" className="sess" aria-current={cur === k.kindId} onClick={() => onPick(k.kindId)}>
+            {k.label}
+            {k.locked && " ✓"}
+          </button>
+        ))}
+        {!adding && (
+          <button type="button" className="sess add" onClick={() => setAdding(true)}>
+            + 조 종류 추가
+          </button>
+        )}
+      </div>
+      {adding && (
+        <div className="kindadd">
+          <input
+            className="tin"
+            maxLength={MAX_LABEL}
+            autoFocus
+            placeholder="예: 식사조, 게임조"
+            aria-label="조 종류 이름"
+            value={label}
+            onChange={(e) => setLabel(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === "Enter") add(label);
+              if (e.key === "Escape") setAdding(false);
+            }}
+          />
+          <button className="btn" type="button" disabled={busy} onClick={() => add(label)}>
+            추가
+          </button>
+          <button
+            className="btn ghost"
+            type="button"
+            onClick={() => {
+              setAdding(false);
+              setErr("");
+            }}
+          >
+            취소
+          </button>
+          {suggest.length > 0 && (
+            <div className="kindsug">
+              <span className="hint">공통코드에서 고르기</span>
+              {suggest.map((c) => (
+                <button key={c._id} type="button" className="codechip" disabled={busy} onClick={() => add(c.label)}>
+                  {c.label}
+                </button>
+              ))}
+            </div>
+          )}
+          {err && <p className="errmsg">{err}</p>}
+        </div>
+      )}
+    </div>
+  );
+}
+
+/** 추가 조 종류 안내: 대상(출석자) 인원, 이 회차에서 종류 삭제 */
+function KindInfo({
+  sessionId,
+  kind,
+  attended,
+  total,
+  onRemoved,
+}: {
+  sessionId: Id<"sessions">;
+  kind: KindRow;
+  attended: number;
+  total: number;
+  onRemoved: () => void;
+}) {
+  const removeKind = useAM(api.groupings.removeKind);
+  const [confirm, setConfirm] = useState(false);
+  return (
+    <div className={`notice kindinfo ${confirm ? "err" : ""}`}>
+      {confirm ? (
+        <>
+          <p>이 회차에서 ‘{kind.label}’ 편성을 삭제할까요? 나눠 둔 조가 모두 지워져요.</p>
+          <div className="actions">
+            <button className="btn ghost sm" type="button" onClick={() => setConfirm(false)}>
+              아니요
+            </button>
+            <button
+              className="btn danger sm"
+              type="button"
+              onClick={() =>
+                removeKind({ sessionId, kindId: kind.kindId })
+                  .then(() => {
+                    toast(`‘${kind.label}’ 편성을 삭제했어요`);
+                    onRemoved();
+                  })
+                  .catch((e) => toast(errInfo(e).message))
+              }
+            >
+              삭제
+            </button>
+          </div>
+        </>
+      ) : (
+        <>
+          <p>
+            {kind.label} 대상: 이 회차 출석자 {attended}명 (참여자 {total}명 중). 출석체크를 하면 미배정에 바로 들어와요.
+          </p>
+          {!kind.locked && (
+            <button className="btn ghost sm" type="button" onClick={() => setConfirm(true)}>
+              이 회차에서 {kind.label} 삭제
+            </button>
+          )}
+        </>
+      )}
+    </div>
   );
 }

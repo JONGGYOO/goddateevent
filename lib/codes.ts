@@ -11,9 +11,16 @@ export const SYSTEM_GROUPS = [
     description: "출석체크 카드 아래 메모 칸에서 고르는 코드",
     codes: ["지각", "조퇴", "결석 연락함", "연락 안 됨", "차량 동승", "식사 안 함"],
   },
+  {
+    key: "GROUP_KIND",
+    name: "조 종류",
+    description: "조 편성에서 기본 조 말고 추가로 짜는 조 (대상: 그 회차 출석자)",
+    codes: ["식사조", "게임조"],
+  },
 ] as const;
 
 export const CHECK_MEMO = "CHECK_MEMO";
+export const GROUP_KIND = "GROUP_KIND";
 export const isSystemGroup = (key: string) => SYSTEM_GROUPS.some((g) => g.key === key);
 
 export const MAX_LABEL = 30;

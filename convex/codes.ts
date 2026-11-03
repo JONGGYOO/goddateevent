@@ -32,11 +32,37 @@ async function getCode(ctx: Ctx, id: Id<"codes">) {
   return c;
 }
 
-/** 출석 메모에서 쓰인 횟수 (코드별) */
+/** 코드별 쓰인 횟수: 출석 메모 건수 / 조 종류로 쓰인 회차 수 */
 async function usage(ctx: Ctx) {
-  const n = new Map<Id<"codes">, number>();
-  for (const m of await ctx.db.query("checkMemos").take(MAX_ROWS)) for (const c of m.codeIds) n.set(c, (n.get(c) ?? 0) + 1);
-  return n;
+  const memo = new Map<Id<"codes">, number>();
+  for (const m of await ctx.db.query("checkMemos").take(MAX_ROWS)) for (const c of m.codeIds) memo.set(c, (memo.get(c) ?? 0) + 1);
+  const kind = new Map<Id<"codes">, number>();
+  for (const g of await ctx.db.query("groupings").take(MAX_ROWS)) if (g.kindId) kind.set(g.kindId, (kind.get(g.kindId) ?? 0) + 1);
+  return { memo, kind };
+}
+
+/** 기본 그룹을 찾고, 없으면 기본 코드와 함께 만든다 */
+async function ensureSystemGroup(ctx: MutationCtx, key: string) {
+  const ex = await groupByKey(ctx, key);
+  if (ex) return ex;
+  const s = SYSTEM_GROUPS.find((x) => x.key === key);
+  if (!s) throw new ConvexError(`알 수 없는 기본 그룹이에요: ${key}`);
+  const id = await ctx.db.insert("codeGroups", { key: s.key, name: s.name, description: s.description });
+  for (const [i, label] of s.codes.entries()) await ctx.db.insert("codes", { groupId: id, label, order: i + 1, active: true });
+  return (await ctx.db.get("codeGroups", id)) as Doc<"codeGroups">;
+}
+
+/** 그룹 키 + 글자로 코드 찾기. 없으면 새로 만든다 (사용 안 함이면 다시 사용으로) */
+export async function findOrCreateCode(ctx: MutationCtx, key: string, raw: string) {
+  const group = await ensureSystemGroup(ctx, key);
+  const label = cleanLabel(raw);
+  if (!label) fieldError("label", MSG_LABEL);
+  const ex = (await codesOf(ctx, group._id)).find((c) => c.label === label);
+  if (ex) {
+    if (!ex.active) await ctx.db.patch("codes", ex._id, { active: true });
+    return { _id: ex._id, label };
+  }
+  return { _id: await insertCode(ctx, group, label), label };
 }
 
 function cleanGroup(input: { key: string; name: string; description?: string }) {
@@ -80,7 +106,7 @@ export const listCodes = adminQuery({
     const group = await ctx.db.get("codeGroups", groupId);
     if (!group) return null;
     const used = await usage(ctx);
-    const codes = (await codesOf(ctx, groupId)).map((c) => ({ ...c, used: used.get(c._id) ?? 0 }));
+    const codes = (await codesOf(ctx, groupId)).map((c) => ({ ...c, used: used.memo.get(c._id) ?? 0, usedAsKind: used.kind.get(c._id) ?? 0 }));
     return { group: { ...group, system: isSystemGroup(group.key) }, codes };
   },
 });
@@ -103,8 +129,7 @@ export const ensureSystemGroups = adminMutation({
     let created = 0;
     for (const s of SYSTEM_GROUPS) {
       if (await groupByKey(ctx, s.key)) continue;
-      const id = await ctx.db.insert("codeGroups", { key: s.key, name: s.name, description: s.description });
-      for (const [i, label] of s.codes.entries()) await ctx.db.insert("codes", { groupId: id, label, order: i + 1, active: true });
+      await ensureSystemGroup(ctx, s.key);
       created++;
     }
     return { created };
@@ -143,6 +168,9 @@ export const removeGroup = adminMutation({
     const g = await getGroup(ctx, id);
     if (isSystemGroup(g.key)) throw new ConvexError(MSG_SYSTEM);
     const ids = new Set<Id<"codes">>();
+    const used = await usage(ctx);
+    const kinds = (await codesOf(ctx, id)).filter((c) => used.kind.get(c._id));
+    if (kinds.length) throw new ConvexError(`조 종류로 쓰이는 코드(${kinds.map((c) => c.label).join(", ")})가 있어 지울 수 없어요.`);
     for (const c of await codesOf(ctx, id)) {
       ids.add(c._id);
       await ctx.db.delete("codes", c._id);
@@ -196,7 +224,9 @@ export const moveCode = adminMutation({
 export const removeCode = adminMutation({
   args: { id: v.id("codes") },
   handler: async (ctx, { id }) => {
-    await getCode(ctx, id);
+    const c = await getCode(ctx, id);
+    const n = (await usage(ctx)).kind.get(id) ?? 0;
+    if (n) throw new ConvexError(`‘${c.label}’은 ${n}개 회차 조 편성에서 쓰고 있어 지울 수 없어요. 숨기려면 ‘사용 안 함’을 쓰세요.`);
     await ctx.db.delete("codes", id);
     await stripCodes(ctx, new Set([id]));
     return null;

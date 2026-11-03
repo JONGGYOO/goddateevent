@@ -135,9 +135,11 @@ export default defineSchema({
     .index("by_member", ["memberId"])
     .index("by_event_member", ["eventId", "memberId"]),
 
-  // 회차별 조 편성 (회차당 1개 문서)
+  // 회차별 조 편성. kindId 없음 = 기본 조(회차당 1개, 대상 참여자 전체)
+  // kindId = 추가 조 종류(식사조·게임조 등, 공통코드 GROUP_KIND, 대상은 그 회차 출석자). 회차·종류당 1개
   groupings: defineTable({
     sessionId: v.id("sessions"),
+    kindId: v.optional(v.id("codes")),
     groupCount: v.number(),             // 2~12
     assignments: v.array(v.object({ memberId: v.id("members"), group: v.number() })), // group: 0부터
     locked: v.optional(v.boolean()),    // 조 확정: 저장 불가
@@ -214,7 +216,7 @@ convex/members.ts       list, get, create, update, remove, importMany
 convex/events.ts        list(회차 수·참여 남녀 수·다음 회차 포함), get, create, update, remove
 convex/sessions.ts      listByEvent(번호 계산 포함), create, updateDate, remove
 convex/participants.ts  listByEvent(member 조인), pool, addMany, remove, setLocked(인원 확정/취소)
-convex/groupings.ts     getBySession, listPriorBySession(같은 행사의 이전 회차들), save(groupCount, assignments), setLocked(조 확정/취소)
+convex/groupings.ts     getBySession(kindId?), save(kindId?, groupCount, assignments), setLocked(kindId?), addKind(글자 → GROUP_KIND 코드 찾기/만들기), removeKind
 convex/checkin.ts       boardBySession(참여자+출석+차량+조번호+메모+로그 한 번에), checkIn, cancelCheckIn,
                         carIn, carOut, registerPlateAndCarIn, walkIn, setMemo
 convex/codes.ts         listGroups, listCodes, byKey, ensureSystemGroups, createGroup, updateGroup, removeGroup,
@@ -284,7 +286,14 @@ convex/seed.ts          개발용 예시 데이터 (internalMutation, 운영에�
 - 칩 클릭 → 지난 편성 이력, 조 선택 버튼(각 조에 "재회 n명 / 새 만남" 표시), 미배정으로 빼기.
 - "+ 추가" → 미배정자 다중 선택(이 조 이성과 만난 적 없는 사람 먼저).
 - 변경 즉시 저장(자동 저장). 조 개수를 줄이면 없어진 조 인원은 미배정.
-- **조 확정**: 회차별 "조 확정" → 조 개수·랜덤·불러오기·비우기·칩 이동/추가 잠금(서버 save도 거부), "확정 취소"로 해제. 편성이 없으면 확정 불가. 탭 요약에 "· 확정".
+- **조 종류**: 회차 칩 아래 "조 종류" 줄 = `기본 조` + 이 회차에 추가한 종류 + "+ 조 종류 추가".
+  - 추가는 글자로 적거나 공통코드 `GROUP_KIND`(조 종류) 코드를 눌러 고른다. 적은 글자가 코드에 없으면 코드로 자동 등록.
+  - 추가 조 종류의 대상은 **그 회차 출석자만**(출석체크하면 미배정에 바로 들어옴, 출석 취소하면 빠짐). 서버 save도 출석자만 남긴다.
+  - 겹침 비교: 기본 조 = 이전 회차 기본 조. 추가 종류 = 이전 회차의 같은 종류 + 같은 회차 기본 조.
+  - 종류마다 조 개수·배정·확정이 따로. "이 회차에서 OO 삭제"(확정 중이면 불가).
+  - 회차 관리 목록에 `기본 조 5개 ✓ · 식사조 5개`처럼 표시. 출석 카드는 기본 조만, 출석 상세에 "다른 조: 식사조 2조 · 게임조 1조".
+  - 조 종류로 쓰이는 코드는 삭제 불가(‘사용 안 함’으로 숨김). 이름을 바꾸면 모든 회차에 반영.
+- **조 확정**: 회차별·종류별 "조 확정" → 조 개수·랜덤·불러오기·비우기·칩 이동/추가 잠금(서버 save도 거부), "확정 취소"로 해제. 편성이 없으면 확정 불가. 탭 요약에 "· 확정".
 
 #### ④ `/check` 출석체크 (가장 중요)
 - 상단: 회차 칩, 모드: 출석 / 차량. (태블릿 A/B 같은 기기 구분은 없다)

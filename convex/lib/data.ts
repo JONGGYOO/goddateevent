@@ -56,11 +56,17 @@ export const memosOf = (ctx: Ctx, sessionId: Id<"sessions">) =>
     .withIndex("by_session", (q) => q.eq("sessionId", sessionId))
     .take(MAX_ROWS);
 
-export const groupingOf = (ctx: Ctx, sessionId: Id<"sessions">) =>
+/** 회차의 모든 조 편성 (기본 조 + 추가 조 종류) */
+export const groupingsOf = (ctx: Ctx, sessionId: Id<"sessions">) =>
   ctx.db
     .query("groupings")
     .withIndex("by_session", (q) => q.eq("sessionId", sessionId))
-    .unique();
+    .take(100);
+
+/** 회차의 조 편성 하나. kindId를 비우면 기본 조 */
+export async function groupingOf(ctx: Ctx, sessionId: Id<"sessions">, kindId?: Id<"codes"> | null) {
+  return (await groupingsOf(ctx, sessionId)).find((g) => (g.kindId ?? null) === (kindId ?? null)) ?? null;
+}
 
 export async function getOrThrow<T extends "members" | "events" | "sessions">(ctx: Ctx, table: T, id: Id<T>) {
   const doc = await ctx.db.get(table, id);
@@ -129,8 +135,7 @@ export async function findCarOwner(ctx: Ctx, plates: string[], exceptId?: Id<"me
 
 /** 회차와 그 하위 기록 삭제 */
 export async function deleteSessionCascade(ctx: MutationCtx, sessionId: Id<"sessions">) {
-  const g = await groupingOf(ctx, sessionId);
-  if (g) await ctx.db.delete("groupings", g._id);
+  for (const g of await groupingsOf(ctx, sessionId)) await ctx.db.delete("groupings", g._id);
   for (const a of await attendanceOf(ctx, sessionId)) await ctx.db.delete("attendance", a._id);
   for (const c of await carChecksOf(ctx, sessionId)) await ctx.db.delete("carChecks", c._id);
   const logs = await ctx.db
@@ -145,9 +150,10 @@ export async function deleteSessionCascade(ctx: MutationCtx, sessionId: Id<"sess
 /** 해당 회원을 행사의 모든 회차 조 편성에서 뺀다 */
 export async function removeFromGroupings(ctx: MutationCtx, eventId: Id<"events">, memberId: Id<"members">) {
   for (const s of await sessionsOf(ctx, eventId)) {
-    const g = await groupingOf(ctx, s._id);
-    if (g && g.assignments.some((a) => a.memberId === memberId)) {
-      await ctx.db.patch("groupings", g._id, { assignments: g.assignments.filter((a) => a.memberId !== memberId) });
+    for (const g of await groupingsOf(ctx, s._id)) {
+      if (g.assignments.some((a) => a.memberId === memberId)) {
+        await ctx.db.patch("groupings", g._id, { assignments: g.assignments.filter((a) => a.memberId !== memberId) });
+      }
     }
   }
 }

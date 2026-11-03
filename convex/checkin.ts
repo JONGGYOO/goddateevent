@@ -13,6 +13,7 @@ import {
   findCarOwner,
   getOrThrow,
   groupingOf,
+  groupingsOf,
   memosOf,
   participantsOf,
   sessionsOf,
@@ -37,9 +38,18 @@ export const boardBySession = adminQuery({
       if (!labels.has(id)) labels.set(id, (await ctx.db.get("codes", id))?.label ?? null);
       return labels.get(id) ?? null;
     };
-    const g = await groupingOf(ctx, sessionId);
     const groupOf = new Map<Id<"members">, number>();
-    if (g) for (const a of g.assignments) if (a.group < g.groupCount) groupOf.set(a.memberId, a.group + 1);
+    // 추가 조 종류(식사조·게임조 등): 회원별 [{label, group}]
+    const extraOf = new Map<Id<"members">, { label: string; group: number }[]>();
+    for (const g of await groupingsOf(ctx, sessionId)) {
+      const label = g.kindId ? await labelOf(g.kindId) : null;
+      if (g.kindId && !label) continue;
+      for (const a of g.assignments) {
+        if (a.group >= g.groupCount) continue;
+        if (!label) groupOf.set(a.memberId, a.group + 1);
+        else extraOf.set(a.memberId, [...(extraOf.get(a.memberId) ?? []), { label, group: a.group + 1 }]);
+      }
+    }
 
     const people = [];
     const names = new Map<Id<"members">, { name: string; gender: "M" | "F" }>();
@@ -66,6 +76,7 @@ export const boardBySession = adminQuery({
         phone: m.phone ?? null,
         cars: m.cars,
         group: groupOf.get(m._id) ?? null,
+        extraGroups: (extraOf.get(m._id) ?? []).sort((x, y) => x.label.localeCompare(y.label, "ko")),
         att: a ? { at: a.checkedAt } : null,
         car: c ? { plate: c.plate, at: c.checkedAt } : null,
         memo,

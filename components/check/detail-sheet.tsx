@@ -93,6 +93,12 @@ export function DetailSheet({
         <dd className="num">{p.phone ? maskPhone(p.phone) : "-"}</dd>
         <dt>출석</dt>
         <dd className="num">{p.att ? hm(p.att.at) : "미출석"}</dd>
+        {p.extraGroups.length > 0 && (
+          <>
+            <dt>다른 조</dt>
+            <dd>{p.extraGroups.map((x) => `${x.label} ${x.group}조`).join(" · ")}</dd>
+          </>
+        )}
         {p.memo && (
           <>
             <dt>메모</dt>

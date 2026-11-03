@@ -8,7 +8,7 @@ import {
   deleteSessionCascade,
   fieldError,
   getOrThrow,
-  groupingOf,
+  groupingsOf,
   participantsOf,
   sessionsOf,
   type Ctx,
@@ -68,7 +68,15 @@ export const overview = adminQuery({
       ss.map(async (s) => {
         const att = await attendanceOf(ctx, s._id);
         const cars = await carChecksOf(ctx, s._id);
-        const g = await groupingOf(ctx, s._id);
+        const all = await groupingsOf(ctx, s._id);
+        const g = all.find((x) => !x.kindId);
+        const kinds = [];
+        for (const x of all) {
+          if (!x.kindId) continue;
+          const c = await ctx.db.get("codes", x.kindId);
+          if (c) kinds.push({ kindId: x.kindId, label: c.label, groupCount: x.groupCount, locked: x.locked ?? false });
+        }
+        kinds.sort((a, b) => a.label.localeCompare(b.label, "ko"));
         return {
           _id: s._id,
           date: s.date,
@@ -78,6 +86,7 @@ export const overview = adminQuery({
           cars: cars.length,
           groupCount: g ? g.groupCount : null,
           groupLocked: g?.locked ?? false,
+          kinds,
         };
       }),
     );
