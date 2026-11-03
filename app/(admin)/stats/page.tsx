@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import { useRouter, useSearchParams } from "next/navigation";
 import { Suspense, useMemo, useState } from "react";
@@ -7,7 +7,7 @@ import type { Id } from "@/convex/_generated/dataModel";
 import { useAQ, useToday } from "@/components/admin";
 import { G_OPTIONS, GN, Hl, Loading, Meter, SearchBox, Seg, Stat, pct, type GFilter } from "@/components/kit";
 import type { FunctionReturnType } from "convex/server";
-import { fmtSession, hm } from "@/lib/date";
+import { fmtSession } from "@/lib/date";
 import { koCompare, matchAt } from "@/lib/hangul";
 
 type Scope = "event" | "cars" | "all";
@@ -310,34 +310,27 @@ function CarStats({ eventId, today }: { eventId: Id<"events">; today: string }) 
   return (
     <div className="stack">
       <p className="hint" style={{ margin: 0 }}>
-        회차를 고르면 참여자 등록 차량의 도착 시각과 체크한 태블릿을 볼 수 있어요.
+        회차를 고르면 그 회차에 도착 체크된 차량을 볼 수 있어요.
       </p>
       <SessionCars sessions={data.sessions} people={data.people} today={today} />
     </div>
   );
 }
 
-/** 회차를 골라 참여자 등록 차량과 도착 여부(시각·기기)를 본다 */
+/** 회차를 골라 도착 체크된 차량(번호·운전자)만 본다 */
 function SessionCars({ sessions, people, today }: { sessions: EventStatsData["sessions"]; people: EventStatsData["people"]; today: string }) {
   const held = sessions.filter((s) => s.date <= today);
   const [picked, setPicked] = useState<Id<"sessions"> | null>(null);
   const cur = held.find((s) => s._id === picked) ?? held[held.length - 1];
   if (!cur) return <div className="empty flat box">아직 진행한 회차가 없어요.</div>;
 
-  const arrived = new Map((cur.carChecks ?? []).map((c) => [c.memberId as string, c]));
-  type Row = { key: string; plate: string; p: EventStatsData["people"][number]; at: number | null; device: string | null };
-  const rows: Row[] = [];
-  for (const p of people) {
-    const c = arrived.get(p.memberId);
-    for (const plate of p.cars ?? []) {
-      const on = c?.plate === plate;
-      rows.push({ key: `${p.memberId}-${plate}`, plate, p, at: on && c ? c.at : null, device: on && c ? c.device : null });
-    }
-    // 도착 체크 후 회원 차량에서 지워진 번호도 기록으로 보여 준다
-    if (c && !(p.cars ?? []).includes(c.plate)) rows.push({ key: `${p.memberId}-${c.plate}`, plate: c.plate, p, at: c.at, device: c.device });
-  }
-  rows.sort((a, b) => (a.at == null) === (b.at == null) ? (a.at ?? 0) - (b.at ?? 0) || a.plate.slice(-4).localeCompare(b.plate.slice(-4)) : a.at == null ? 1 : -1);
-  const done = rows.filter((r) => r.at != null).length;
+  const byId = new Map(people.map((p) => [p.memberId as string, p]));
+  const rows = cur.carChecks
+    .flatMap((c) => {
+      const p = byId.get(c.memberId);
+      return p ? [{ key: `${c.memberId}-${c.plate}`, plate: c.plate, p, at: c.at }] : [];
+    })
+    .sort((a, b) => a.at - b.at);
 
   return (
     <div className="stack" style={{ gap: 10 }}>
@@ -351,17 +344,15 @@ function SessionCars({ sessions, people, today }: { sessions: EventStatsData["se
         </div>
         <span className="spacer" />
         <span className="hint">
-          {cur.no}회차 도착 <strong className="num">{done}</strong> / 등록 차량 <span className="num">{rows.length}</span>대
+          {cur.no}회차 도착 <strong className="num">{rows.length}</strong>대
         </span>
       </div>
       <div className="tablewrap">
-        <table style={{ minWidth: 640 }}>
+        <table>
           <thead>
             <tr>
               <th>차량번호</th>
               <th>운전자</th>
-              <th>명찰</th>
-              <th>도착</th>
             </tr>
           </thead>
           <tbody>
@@ -375,22 +366,12 @@ function SessionCars({ sessions, people, today }: { sessions: EventStatsData["se
                     <span className={`dot ${r.p.gender}`} />
                     <span className="nm">{r.p.name}</span>
                   </td>
-                  <td className="num muted">{r.p.nameTagNo}</td>
-                  <td>
-                    {r.at != null ? (
-                      <span className="pill ok">
-                        도착 {hm(r.at)} · 태블릿 {r.device}
-                      </span>
-                    ) : (
-                      <span className="pill off">미도착</span>
-                    )}
-                  </td>
                 </tr>
               ))
             ) : (
               <tr>
-                <td colSpan={4} className="muted">
-                  참여자 중 등록된 차량이 없어요.
+                <td colSpan={2} className="muted">
+                  이 회차에 도착 체크된 차량이 없어요.
                 </td>
               </tr>
             )}
