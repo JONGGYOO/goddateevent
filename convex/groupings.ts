@@ -43,17 +43,20 @@ export const getBySession = adminQuery({
 
     const grouping = all.find((g) => (g.kindId ?? null) === (kindId ?? null)) ?? null;
 
-    // 겹침 비교: 같은 종류의 이전 회차 + (추가 종류면) 같은 회차 기본 조
+    // 겹침 비교는 이전 회차만: 기본 조 = 이전 회차 기본 조, 추가 종류 = 이전 회차의 기본 조 + 같은 종류.
+    // (같은 회차 기본 조는 비교하지 않는다. 추가 종류는 기본 조를 복사해서 시작하므로 비교하면 모두 재회로 보인다)
     const prior = [];
     for (const s of ss) {
       if (s.no >= cur.no) continue;
       const g = await groupingOf(ctx, s._id, kindId);
       if (g) prior.push({ no: s.no, label: `${s.no}회차${kind ? ` ${kind.label}` : ""}`, groupCount: g.groupCount, assignments: g.assignments, same: true });
+      if (kindId) {
+        const b = await groupingOf(ctx, s._id);
+        if (b) prior.push({ no: s.no, label: `${s.no}회차 기본 조`, groupCount: b.groupCount, assignments: b.assignments, same: false });
+      }
     }
-    if (kindId) {
-      const base = all.find((g) => !g.kindId);
-      if (base) prior.push({ no: cur.no, label: `${cur.no}회차 기본 조`, groupCount: base.groupCount, assignments: base.assignments, same: false });
-    }
+    // 추가 종류 화면의 "기본 조 불러오기"용: 같은 회차 기본 조
+    const sessionBase = kindId ? all.find((g) => !g.kindId) : undefined;
 
     const ids = await targetIds(ctx, session, kindId);
     const people = [];
@@ -69,6 +72,7 @@ export const getBySession = adminQuery({
       kinds,
       grouping: grouping ? { groupCount: grouping.groupCount, assignments: grouping.assignments, locked: grouping.locked ?? false } : null,
       prior,
+      base: sessionBase ? { groupCount: sessionBase.groupCount, assignments: sessionBase.assignments } : null,
       people,
       participantCount,
     };

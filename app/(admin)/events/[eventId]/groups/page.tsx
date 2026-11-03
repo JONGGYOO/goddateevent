@@ -116,7 +116,7 @@ function GroupsBoard({
   const gm = groupsOf(assign, ids, k);
   const score = scoreGrouping(people, k, assign, met);
   const prev = data.prior.filter((p) => p.same).at(-1);
-  const sameBase = data.prior.find((p) => !p.same);
+  const sameBase = data.base;
 
   /** 변경 즉시 저장 (자동 저장). 저장이 끝나기 전에는 화면에 바로 보이도록 local로 유지 */
   const commit = async (next: Draft) => {
@@ -240,7 +240,7 @@ function GroupsBoard({
           <span className="lbl">겹침 방지</span>
           <label className="chk">
             <input type="checkbox" checked={avoid} onChange={(e) => setAvoid(e.target.checked)} />{" "}
-            {data.kind ? "기본 조·이전 회차에서 같은 조였던 이성 피하기" : "이전 회차에 같은 조였던 이성 피하기"}
+            이전 회차에 같은 조였던 이성 피하기
           </label>
         </div>
         <div className="go">
