@@ -9,7 +9,7 @@ export const SYSTEM_GROUPS = [
     key: "CHECK_MEMO",
     name: "출석 메모",
     description: "출석체크 카드 아래 메모 칸에서 고르는 코드",
-    codes: ["지각", "조퇴", "결석 연락함", "연락 안 됨", "명찰 재발급", "차량 동승", "식사 안 함"],
+    codes: ["지각", "조퇴", "결석 연락함", "연락 안 됨", "차량 동승", "식사 안 함"],
   },
 ] as const;
 

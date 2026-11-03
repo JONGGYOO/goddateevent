@@ -52,12 +52,12 @@ function CheckBoard({ sessionId }: { sessionId: Id<"sessions"> }) {
   const list = useMemo(() => {
     let L = people.filter((p) => {
       if (!qn) return true;
-      if (/^\d+$/.test(qn)) return String(p.nameTagNo).startsWith(qn) || (p.phone ?? "").endsWith(qn);
+      if (/^\d+$/.test(qn)) return (p.phone ?? "").replace(/\D/g, "").endsWith(qn);
       return matchAt(p.name, qn) >= 0;
     });
     if (g !== "ALL") L = L.filter((p) => p.gender === g);
     if (onlyAbsent) L = L.filter((p) => !p.att && !pending.has(p.memberId));
-    return L.sort((a, b) => (a.gender === b.gender ? koCompare(a.name, b.name) || a.nameTagNo - b.nameTagNo : a.gender === "M" ? -1 : 1));
+    return L.sort((a, b) => (a.gender === b.gender ? koCompare(a.name, b.name) || (a.phone ?? "").localeCompare(b.phone ?? "") : a.gender === "M" ? -1 : 1));
   }, [people, qn, g, onlyAbsent, pending]);
 
   if (board === undefined) return <Loading />;
@@ -83,7 +83,7 @@ function CheckBoard({ sessionId }: { sessionId: Id<"sessions"> }) {
       const r = await checkIn({ sessionId, memberId: p.memberId, device: dev });
       const msg = (
         <span>
-          <strong>{r.name}</strong> 출석{r.group ? <> · <strong>{r.group}조</strong></> : null} · 명찰 {r.nameTagNo}번
+          <strong>{r.name}</strong> 출석{r.group ? <> · <strong>{r.group}조</strong></> : null}
         </span>
       );
       if (r.created) {
@@ -188,7 +188,7 @@ function CheckBoard({ sessionId }: { sessionId: Id<"sessions"> }) {
             <>
               <div className="controls">
                 <Seg value={g} options={G_OPTIONS} onChange={setG} label="성별" />
-                <SearchBox ref={searchRef} big value={q} onChange={setQ} placeholder="이름 또는 초성 (예: ㄱㅁㅅ), 명찰번호" />
+                <SearchBox ref={searchRef} big value={q} onChange={setQ} placeholder="이름 또는 초성 (예: ㄱㅁㅅ), 전화 뒷자리" />
                 <label className="chk">
                   <input type="checkbox" checked={onlyAbsent} onChange={(e) => setOnlyAbsent(e.target.checked)} /> 미출석만
                 </label>
@@ -205,16 +205,15 @@ function CheckBoard({ sessionId }: { sessionId: Id<"sessions"> }) {
                       <div key={p.memberId} className={`card ${p.gender} ${on ? "on" : ""}`}>
                       <button type="button" className="cbody" aria-pressed={on} onClick={() => tapCard(p)}>
                         <span className="g" />
-                        <span className="name">
-                          <Hl text={p.name} q={/^\d+$/.test(qn) ? "" : qn} />
-                        </span>
-                        <span className="meta">
+                        <span className="nl">
+                          <span className="name">
+                            <Hl text={p.name} q={/^\d+$/.test(qn) ? "" : qn} />
+                          </span>
                           {p.group && <span className="grpn">{p.group}조</span>}
-                          {p.phone && <span className="num">☎ {p.phone.slice(-4)}</span>}
                           {(dup.get(p.name) ?? 0) > 1 && <span className="dup">동명이인</span>}
                         </span>
                         <span className="ft">
-                          <span className="no num">명찰 {p.nameTagNo}</span>
+                          <span className="ph num">{p.phone ? `☎ ${p.phone.slice(-4)}` : ""}</span>
                           {p.att && p.cars.length > 0 && <span className={`cf ${p.car ? "y" : ""}`}>{p.car ? "차량 ✓" : "차량"}</span>}
                           <span className="st">{on && at ? `출석 ${hm(at)}` : "미출석"}</span>
                         </span>

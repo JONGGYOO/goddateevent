@@ -28,7 +28,6 @@ export const listByEvent = adminQuery({
       out.push({
         _id: p._id,
         memberId: m._id,
-        nameTagNo: p.nameTagNo,
         name: m.name,
         gender: m.gender,
         phone: m.phone ?? null,
@@ -73,24 +72,20 @@ export const pool = adminQuery({
   },
 });
 
-/** 선택한 회원을 참여 확정. 명찰 번호: 남 1번~, 여 101번~ 비어 있는 가장 작은 번호 */
+/** 선택한 회원을 참여 확정 */
 export const addMany = adminMutation({
   args: { eventId: v.id("events"), memberIds: v.array(v.id("members")) },
   handler: async (ctx, { eventId, memberIds }) => {
     await getOrThrow(ctx, "events", eventId);
     const parts = await participantsOf(ctx, eventId);
     const already = new Set(parts.map((p) => p.memberId));
-    const used = new Set(parts.map((p) => p.nameTagNo));
     let added = 0;
     for (const memberId of memberIds) {
       if (already.has(memberId)) continue;
       const m = await ctx.db.get("members", memberId);
       if (!m) continue;
-      let tag = m.gender === "M" ? 1 : 101;
-      while (used.has(tag)) tag++;
-      used.add(tag);
       already.add(memberId);
-      await ctx.db.insert("participants", { eventId, memberId, nameTagNo: tag });
+      await ctx.db.insert("participants", { eventId, memberId });
       added++;
     }
     return { added };

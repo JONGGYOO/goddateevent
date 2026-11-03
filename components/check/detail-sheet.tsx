@@ -12,7 +12,7 @@ import { maskPhone } from "@/lib/phone";
 import { readPlateFields } from "@/lib/plate";
 import type { Person } from "./types";
 
-/** 출석한 사람 상세: 명찰·연락처(마스킹)·출석 시각, 차량 체크/등록, 출석 취소 */
+/** 출석한 사람 상세: 연락처(마스킹)·출석 시각, 차량 체크/등록, 출석 취소 */
 export function DetailSheet({
   person,
   sessionId,
@@ -91,8 +91,6 @@ export function DetailSheet({
         {p.group && <span className="pill ac">{p.group}조</span>}
       </ModalTitle>
       <dl className="kv">
-        <dt>명찰</dt>
-        <dd className="num">{p.nameTagNo}번</dd>
         <dt>연락처</dt>
         <dd className="num">{p.phone ? maskPhone(p.phone) : "-"}</dd>
         <dt>출석</dt>

@@ -21,7 +21,7 @@ export const getBySession = adminQuery({
     const people = [];
     for (const p of await participantsOf(ctx, session.eventId)) {
       const m = await ctx.db.get("members", p.memberId);
-      if (m) people.push({ memberId: m._id, name: m.name, gender: m.gender, nameTagNo: p.nameTagNo });
+      if (m) people.push({ memberId: m._id, name: m.name, gender: m.gender });
     }
     return {
       session: { _id: cur._id, no: cur.no, date: cur.date },

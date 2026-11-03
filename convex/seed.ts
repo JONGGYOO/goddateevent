@@ -61,7 +61,7 @@ export const insertEvent = internalMutation({
   args: {
     no: v.number(),
     name: v.string(),
-    participants: v.array(v.object({ memberId: v.id("members"), nameTagNo: v.number() })),
+    participants: v.array(v.object({ memberId: v.id("members") })),
     sessions: v.array(
       v.object({
         date: v.string(),
@@ -132,8 +132,8 @@ export const run = internalAction({
     const ev = async (no: number, name: string, dates: string[], mi: Id<"members">[], fi: Id<"members">[]) => {
       const people = [...mi.map((id) => ({ id, gender: "M" as const })), ...fi.map((id) => ({ id, gender: "F" as const }))];
       const participants = [
-        ...mi.map((memberId, i) => ({ memberId, nameTagNo: i + 1 })),
-        ...fi.map((memberId, i) => ({ memberId, nameTagNo: 101 + i })),
+        ...mi.map((memberId) => ({ memberId })),
+        ...fi.map((memberId) => ({ memberId })),
       ];
       const k = people.length >= 40 ? 5 : defaultGroupCount(people.length);
       const priors: PriorGrouping[] = [];

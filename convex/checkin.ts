@@ -14,7 +14,6 @@ import {
   getOrThrow,
   groupingOf,
   memosOf,
-  nextNameTag,
   participantsOf,
   sessionsOf,
 } from "./lib/data";
@@ -68,7 +67,6 @@ export const boardBySession = adminQuery({
         gender: m.gender,
         phone: m.phone ?? null,
         cars: m.cars,
-        nameTagNo: p.nameTagNo,
         group: groupOf.get(m._id) ?? null,
         att: a ? { at: a.checkedAt, device: a.device } : null,
         car: c ? { plate: c.plate, at: c.checkedAt, device: c.device } : null,
@@ -134,16 +132,16 @@ const findCarCheck = (ctx: MutationCtx, sessionId: Id<"sessions">, memberId: Id<
 export const checkIn = adminMutation({
   args: { sessionId: v.id("sessions"), memberId: v.id("members"), device },
   handler: async (ctx, { sessionId, memberId, device }) => {
-    const { participant, member } = await requireParticipant(ctx, sessionId, memberId);
+    const { member } = await requireParticipant(ctx, sessionId, memberId);
     const group = await groupNoOf(ctx, sessionId, memberId);
     const existing = await findAttendance(ctx, sessionId, memberId);
     if (existing) {
-      return { created: false, at: existing.checkedAt, device: existing.device, group, nameTagNo: participant.nameTagNo, name: member.name };
+      return { created: false, at: existing.checkedAt, device: existing.device, group, name: member.name };
     }
     const at = Date.now();
     await ctx.db.insert("attendance", { sessionId, memberId, checkedAt: at, device });
     await addLog(ctx, sessionId, memberId, "in", device, at);
-    return { created: true, at, device, group, nameTagNo: participant.nameTagNo, name: member.name };
+    return { created: true, at, device, group, name: member.name };
   },
 });
 
@@ -258,7 +256,7 @@ export const setMemo = adminMutation({
   },
 });
 
-/** 현장 등록: 회원 생성 → 참여자 추가(명찰 자동) → 출석 → (차량 입력 시) 차량 등록·도착 */
+/** 현장 등록: 회원 생성 → 참여자 추가 → 출석 → (차량 입력 시) 차량 등록·도착 */
 export const walkIn = adminMutation({
   args: {
     sessionId: v.id("sessions"),
@@ -289,12 +287,11 @@ export const walkIn = adminMutation({
       memo: "현장 등록",
     });
     const memberId = await ctx.db.insert("members", clean);
-    const nameTagNo = await nextNameTag(ctx, session.eventId, gender);
-    await ctx.db.insert("participants", { eventId: session.eventId, memberId, nameTagNo });
+    await ctx.db.insert("participants", { eventId: session.eventId, memberId });
     if (clean.cars[0]) await doCarIn(ctx, sessionId, memberId, clean.cars[0], device);
     const at = Date.now();
     await ctx.db.insert("attendance", { sessionId, memberId, checkedAt: at, device });
     await addLog(ctx, sessionId, memberId, "in", device, at);
-    return { memberId, nameTagNo, at, name: clean.name };
+    return { memberId, at, name: clean.name };
   },
 });

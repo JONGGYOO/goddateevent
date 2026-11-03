@@ -37,7 +37,7 @@ export default function ParticipantsTab() {
   const poolIds = useMemo(() => new Set((pool ?? []).map((m) => m._id)), [pool]);
   const selected = [...picked].filter((id) => poolIds.has(id));
 
-  const byG = (gg: G) => (parts ?? []).filter((p) => p.gender === gg).sort((a, b) => a.nameTagNo - b.nameTagNo);
+  const byG = (gg: G) => (parts ?? []).filter((p) => p.gender === gg).sort((a, b) => koCompare(a.name, b.name));
   const M = byG("M");
   const F = byG("F");
 
@@ -66,8 +66,7 @@ export default function ParticipantsTab() {
   return (
     <>
       <p className="hint" style={{ margin: 0 }}>
-        회원 명부에서 이 행사에 참여할 사람을 골라 확정합니다. 확정한 인원만 조 편성과 출석체크 명단에 나옵니다. 명찰 번호는 남자 1번부터, 여자
-        101번부터 자동으로 붙어요.
+        회원 명부에서 이 행사에 참여할 사람을 골라 확정합니다. 확정한 인원만 조 편성과 출석체크 명단에 나옵니다.
       </p>
       <div className="two">
         <section className="box pane">
@@ -149,7 +148,6 @@ export default function ParticipantsTab() {
                     {L.length ? (
                       L.map((p) => (
                         <span className={`rchip ${gg}`} key={p._id}>
-                          <span className="tg">{p.nameTagNo}</span>
                           {p.name}
                           <button
                             type="button"

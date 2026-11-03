@@ -54,7 +54,7 @@ export function WalkIn({
       });
       toast(
         <span>
-          <strong>{res.name}</strong> 현장 등록 · 출석 · 명찰 {res.nameTagNo}번
+          <strong>{res.name}</strong> 현장 등록 · 출석
         </span>,
       );
       onClose();

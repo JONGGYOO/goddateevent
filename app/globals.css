@@ -341,7 +341,6 @@
   .rchip { display: inline-flex; align-items: center; gap: 6px; border-radius: 9px; padding: 4px 4px 4px 10px; font-weight: 600; min-height: 36px; }
   .rchip.M { background: var(--male-soft); color: var(--male); }
   .rchip.F { background: var(--female-soft); color: var(--female); }
-  .rchip .tg { font-family: var(--f-mono); font-size: 12px; opacity: 0.75; }
   .rchip button { border: 0; background: transparent; color: inherit; width: 28px; height: 28px; border-radius: 7px; font-size: 16px; }
   .rchip button:hover { background: var(--surface); }
 
@@ -388,7 +387,7 @@
   .cgrid { display: grid; grid-template-columns: repeat(auto-fill, minmax(158px, 1fr)); gap: 10px; }
   .card { position: relative; border: 1.5px solid var(--line); background: var(--surface); border-radius: 14px; overflow: hidden; display: flex; flex-direction: column; box-shadow: var(--shadow); transition: transform 0.08s; }
   .card:has(.cbody:active) { transform: scale(0.97); }
-  .card .cbody { border: 0; background: transparent; color: inherit; font: inherit; text-align: left; padding: 12px 12px 10px; min-height: 104px; flex: 1; display: flex; flex-direction: column; gap: 4px; }
+  .card .cbody { border: 0; background: transparent; color: inherit; font: inherit; text-align: left; padding: 12px 12px 10px; min-height: 84px; flex: 1; display: flex; flex-direction: column; gap: 4px; }
   .card .cmemo { border: 0; border-top: 1px dashed var(--line); background: var(--bg); color: var(--sub); font: inherit; font-size: 13px; text-align: left; padding: 6px 10px; min-height: 44px; display: flex; flex-wrap: wrap; align-items: center; gap: 4px; min-width: 0; }
   .card .cmemo .add { font-weight: 600; }
   .card .cmemo .tag { background: var(--warn-soft); color: var(--warn); border-radius: 6px; padding: 2px 7px; font-size: 12px; font-weight: 700; }
@@ -398,11 +397,11 @@
   .card.M .g { background: var(--male); }
   .card.F .g { background: var(--female); }
   .card .name { font-size: 22px; font-weight: 700; line-height: 1.2; }
-  .card .meta { font-size: 13px; color: var(--sub); display: flex; gap: 8px; flex-wrap: wrap; }
-  .card .meta .grpn { color: var(--brand); font-weight: 700; }
-  .card .meta .dup { color: var(--warn); font-weight: 700; }
+  .card .nl { display: flex; align-items: baseline; gap: 6px; flex-wrap: wrap; min-width: 0; }
+  .card .nl .grpn { color: var(--brand); font-weight: 700; font-size: 15px; }
+  .card .nl .dup { color: var(--warn); font-weight: 700; font-size: 12px; }
   .card .ft { margin-top: auto; display: flex; align-items: center; justify-content: space-between; gap: 6px; }
-  .card .no { font-size: 13px; color: var(--sub); }
+  .card .ph { font-size: 13px; color: var(--sub); margin-right: auto; }
   .card .st { font-size: 12px; font-weight: 700; padding: 3px 8px; border-radius: 999px; background: var(--sunken); color: var(--sub); }
   .card.on { background: var(--ok-soft); border-color: var(--ok); }
   .card.on .st { background: var(--ok); color: var(--surface); }

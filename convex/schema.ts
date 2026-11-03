@@ -33,7 +33,7 @@ export default defineSchema({
   participants: defineTable({
     eventId: v.id("events"),
     memberId: v.id("members"),
-    nameTagNo: v.number(), // 남 1번부터, 여 101번부터 비어 있는 가장 작은 번호
+    nameTagNo: v.optional(v.number()), // 더 이상 쓰지 않음 (예전 데이터 호환용으로만 남김)
   })
     .index("by_event", ["eventId"])
     .index("by_member", ["memberId"])

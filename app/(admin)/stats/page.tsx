@@ -232,7 +232,6 @@ function EventStats({ eventId, today, ...f }: { eventId: Id<"events">; today: st
           <thead>
             <tr>
               <th>이름</th>
-              <th>명찰</th>
               <th>
                 <span className="marks">
                   {sessions.map((s) => (
@@ -256,7 +255,6 @@ function EventStats({ eventId, today, ...f }: { eventId: Id<"events">; today: st
                       <Hl text={p.name} q={qn} />
                     </span>
                   </td>
-                  <td className="num muted">{p.nameTagNo}</td>
                   <td>
                     <span className="marks">
                       {sessions.map((s) =>
@@ -286,7 +284,7 @@ function EventStats({ eventId, today, ...f }: { eventId: Id<"events">; today: st
               ))
             ) : (
               <tr>
-                <td colSpan={5} className="muted">
+                <td colSpan={4} className="muted">
                   해당하는 참여자가 없어요.
                 </td>
               </tr>

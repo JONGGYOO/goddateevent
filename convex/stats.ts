@@ -17,7 +17,7 @@ export const byEvent = adminQuery({
       const m = await ctx.db.get("members", p.memberId);
       if (!m) continue;
       ids.add(m._id);
-      people.push({ memberId: m._id, name: m.name, gender: m.gender, nameTagNo: p.nameTagNo, cars: m.cars });
+      people.push({ memberId: m._id, name: m.name, gender: m.gender, cars: m.cars });
     }
     const sessions = [];
     for (const s of await sessionsOf(ctx, eventId)) {

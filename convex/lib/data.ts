@@ -124,16 +124,6 @@ export async function findCarOwner(ctx: Ctx, plates: string[], exceptId?: Id<"me
   return null;
 }
 
-/** 비어 있는 가장 작은 명찰 번호 (남 1번~, 여 101번~) */
-export async function nextNameTag(ctx: Ctx, eventId: Id<"events">, gender: Gender, reserved: Set<number> = new Set()) {
-  const parts = await participantsOf(ctx, eventId);
-  const used = new Set<number>(reserved);
-  for (const p of parts) used.add(p.nameTagNo);
-  let t = gender === "M" ? 1 : 101;
-  while (used.has(t)) t++;
-  return t;
-}
-
 /** 회차와 그 하위 기록 삭제 */
 export async function deleteSessionCascade(ctx: MutationCtx, sessionId: Id<"sessions">) {
   const g = await groupingOf(ctx, sessionId);
