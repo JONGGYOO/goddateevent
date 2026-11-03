@@ -116,6 +116,7 @@ export default defineSchema({
   events: defineTable({
     no: v.number(),                     // 고유
     name: v.string(),
+    participantsLocked: v.optional(v.boolean()), // 인원 확정: 추가·제외 불가 (현장 등록은 예외)
   }).index("by_no", ["no"]),
 
   // 회차: 행사 아래 날짜. 회차 번호는 저장하지 않고 날짜 순서로 계산한다.
@@ -139,6 +140,7 @@ export default defineSchema({
     sessionId: v.id("sessions"),
     groupCount: v.number(),             // 2~12
     assignments: v.array(v.object({ memberId: v.id("members"), group: v.number() })), // group: 0부터
+    locked: v.optional(v.boolean()),    // 조 확정: 저장 불가
   }).index("by_session", ["sessionId"]),
 
   // 회차별 출석
@@ -211,8 +213,8 @@ export default defineSchema({
 convex/members.ts       list, get, create, update, remove, importMany
 convex/events.ts        list(회차 수·참여 남녀 수·다음 회차 포함), get, create, update, remove
 convex/sessions.ts      listByEvent(번호 계산 포함), create, updateDate, remove
-convex/participants.ts  listByEvent(member 조인), addMany, remove
-convex/groupings.ts     getBySession, listPriorBySession(같은 행사의 이전 회차들), save(groupCount, assignments)
+convex/participants.ts  listByEvent(member 조인), pool, addMany, remove, setLocked(인원 확정/취소)
+convex/groupings.ts     getBySession, listPriorBySession(같은 행사의 이전 회차들), save(groupCount, assignments), setLocked(조 확정/취소)
 convex/checkin.ts       boardBySession(참여자+출석+차량+조번호+메모+로그 한 번에), checkIn, cancelCheckIn,
                         carIn, carOut, registerPlateAndCarIn, walkIn, setMemo
 convex/codes.ts         listGroups, listCodes, byKey, ensureSystemGroups, createGroup, updateGroup, removeGroup,
@@ -269,8 +271,9 @@ convex/seed.ts          개발용 예시 데이터 (internalMutation, 운영에�
 - 목록: N회차, 날짜(요일), 상태(지난 회차/오늘/예정), 출석 n/N, 조 편성 여부, 차량 대수. 버튼: 날짜 변경, 삭제, 조 편성, 출석체크.
 
 #### ② `/participants` 참여 인원
-- 왼쪽: 회원 명부(이 행사 미참여자) — 성별 필터, 초성 검색, 체크박스, "보이는 사람 모두 선택", 각 행에 과거 참여(제1회·제2회 / "첫 참여").
-  "선택한 n명 참여 확정".
+- 왼쪽: 회원 명부(이 행사 미참여자) — 성별 필터, 초성 검색, 체크박스, "보이는 사람 모두 선택", 각 행에 전화 뒷 4자리·과거 참여(제1회·제2회 / "첫 참여").
+  "선택한 n명 추가".
+- **인원 확정**: 오른쪽 위 "인원 확정" → 추가·제외 잠금(서버도 거부), 상단 안내 + "확정 취소"로 해제. 현장 등록은 확정 중에도 된다. 탭 요약에 "· 확정".
 - 오른쪽: 확정 인원(형제/자매로 나눠 가나다순 `이름 ×`). 남녀 수가 다르면 "남녀 n명 차이" 경고.
 - 제외 시 이미 출석 기록이 있으면 확인 다이얼로그.
 
@@ -281,6 +284,7 @@ convex/seed.ts          개발용 예시 데이터 (internalMutation, 운영에�
 - 칩 클릭 → 지난 편성 이력, 조 선택 버튼(각 조에 "재회 n명 / 새 만남" 표시), 미배정으로 빼기.
 - "+ 추가" → 미배정자 다중 선택(이 조 이성과 만난 적 없는 사람 먼저).
 - 변경 즉시 저장(자동 저장). 조 개수를 줄이면 없어진 조 인원은 미배정.
+- **조 확정**: 회차별 "조 확정" → 조 개수·랜덤·불러오기·비우기·칩 이동/추가 잠금(서버 save도 거부), "확정 취소"로 해제. 편성이 없으면 확정 불가. 탭 요약에 "· 확정".
 
 #### ④ `/check` 출석체크 (가장 중요)
 - 상단: 회차 칩, **이 기기: 태블릿 A / B** (localStorage에 기억), 모드: 출석 / 차량.

@@ -67,8 +67,10 @@ function EventShell({ children }: { children: ReactNode }) {
   const tab = TABS.find(([t]) => pathname.endsWith(`/${t}`))?.[0] ?? "sessions";
   const summary: Record<(typeof TABS)[number][0], string> = {
     sessions: `${sessions.length}개 회차`,
-    participants: `남 ${male} · 여 ${female}`,
-    groups: session ? `${session.no}회차 ${session.groupCount ? `${session.groupCount}개 조` : "미편성"}` : "회차 필요",
+    participants: `남 ${male} · 여 ${female}${event.participantsLocked ? " · 확정" : ""}`,
+    groups: session
+      ? `${session.no}회차 ${session.groupCount ? `${session.groupCount}개 조${session.groupLocked ? " · 확정" : ""}` : "미편성"}`
+      : "회차 필요",
     check: session ? `${session.no}회차 ${session.attended}/${male + female}명` : "회차 필요",
   };
 

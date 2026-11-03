@@ -6,6 +6,7 @@ import {
   MAX_ROWS,
   allMembers,
   attendanceOf,
+  MSG_PARTS_LOCKED,
   getOrThrow,
   participantsOf,
   removeFromGroupings,
@@ -76,7 +77,8 @@ export const pool = adminQuery({
 export const addMany = adminMutation({
   args: { eventId: v.id("events"), memberIds: v.array(v.id("members")) },
   handler: async (ctx, { eventId, memberIds }) => {
-    await getOrThrow(ctx, "events", eventId);
+    const event = await getOrThrow(ctx, "events", eventId);
+    if (event.participantsLocked) throw new ConvexError(MSG_PARTS_LOCKED);
     const parts = await participantsOf(ctx, eventId);
     const already = new Set(parts.map((p) => p.memberId));
     let added = 0;
@@ -96,6 +98,8 @@ export const addMany = adminMutation({
 export const remove = adminMutation({
   args: { eventId: v.id("events"), memberId: v.id("members") },
   handler: async (ctx, { eventId, memberId }) => {
+    const event = await getOrThrow(ctx, "events", eventId);
+    if (event.participantsLocked) throw new ConvexError(MSG_PARTS_LOCKED);
     const p = await ctx.db
       .query("participants")
       .withIndex("by_event_member", (q) => q.eq("eventId", eventId).eq("memberId", memberId))
@@ -103,6 +107,17 @@ export const remove = adminMutation({
     if (!p) throw new ConvexError("이미 참여 인원에서 빠진 분이에요.");
     await ctx.db.delete("participants", p._id);
     await removeFromGroupings(ctx, eventId, memberId);
+    return null;
+  },
+});
+
+/** 참여 인원 확정 / 확정 취소 */
+export const setLocked = adminMutation({
+  args: { eventId: v.id("events"), locked: v.boolean() },
+  handler: async (ctx, { eventId, locked }) => {
+    await getOrThrow(ctx, "events", eventId);
+    if (locked && !(await participantsOf(ctx, eventId)).length) throw new ConvexError("확정할 참여 인원이 없어요. 먼저 회원을 추가하세요.");
+    await ctx.db.patch("events", eventId, { participantsLocked: locked });
     return null;
   },
 });

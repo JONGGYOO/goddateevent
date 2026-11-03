@@ -21,6 +21,7 @@ export default defineSchema({
   events: defineTable({
     no: v.number(), // 고유
     name: v.string(),
+    participantsLocked: v.optional(v.boolean()), // 참여 인원 확정: true면 추가·제외 불가 (현장 등록은 예외)
   }).index("by_no", ["no"]),
 
   // 회차: 행사 아래 날짜. 회차 번호는 저장하지 않고 날짜 순서로 계산한다.
@@ -44,6 +45,7 @@ export default defineSchema({
     sessionId: v.id("sessions"),
     groupCount: v.number(), // 2~12
     assignments: v.array(v.object({ memberId: v.id("members"), group: v.number() })), // group: 0부터
+    locked: v.optional(v.boolean()), // 조 확정: true면 편성 저장 불가
   }).index("by_session", ["sessionId"]),
 
   // 회차별 출석

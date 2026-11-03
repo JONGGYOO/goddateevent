@@ -77,6 +77,7 @@ export const overview = adminQuery({
           attendanceTotal: att.length,
           cars: cars.length,
           groupCount: g ? g.groupCount : null,
+          groupLocked: g?.locked ?? false,
         };
       }),
     );

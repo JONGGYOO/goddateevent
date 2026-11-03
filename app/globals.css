@@ -343,6 +343,15 @@
   .rchip.F { background: var(--female-soft); color: var(--female); }
   .rchip button { border: 0; background: transparent; color: inherit; width: 28px; height: 28px; border-radius: 7px; font-size: 16px; }
   .rchip button:hover { background: var(--surface); }
+  .rchip:not(:has(button)) { padding-right: 10px; }
+  .rchip .tl { font-family: var(--f-mono); font-size: 11px; opacity: 0.7; font-weight: 500; }
+  .pi .dupm { font-size: 12px; color: var(--warn); font-weight: 700; }
+  .pane.locked .plist { opacity: 0.5; pointer-events: none; }
+  .pane.locked .pi { cursor: default; }
+  .notice.lockbar { flex-direction: row; align-items: center; justify-content: space-between; flex-wrap: wrap; background: var(--ok-soft); }
+  .notice.lockbar p { color: var(--ok); }
+  .settings.locked .set { opacity: 0.5; pointer-events: none; }
+  .chip[aria-disabled="true"] { cursor: default; }
 
   /* 조 편성 */
   .settings { background: var(--surface); border: 1px solid var(--line); border-radius: 14px; padding: 14px 16px; display: flex; flex-wrap: wrap; gap: 14px 22px; align-items: flex-end; box-shadow: var(--shadow); }

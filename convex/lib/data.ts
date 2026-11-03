@@ -11,6 +11,9 @@ export const MAX_SESSIONS = 100;
 export const MAX_EVENTS = 1000;
 
 export type Gender = "M" | "F";
+
+export const MSG_PARTS_LOCKED = "참여 인원이 확정돼 있어요. ‘확정 취소’를 누른 뒤 고치세요.";
+export const MSG_GROUPS_LOCKED = "이 회차 조가 확정돼 있어요. ‘확정 취소’를 누른 뒤 고치세요.";
 export type Ctx = QueryCtx | MutationCtx;
 
 /** 필드별 오류. 클라이언트는 error.data.field / error.data.message 로 읽는다 */

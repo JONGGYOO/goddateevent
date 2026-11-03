@@ -1,6 +1,6 @@
 import { ConvexError, v } from "convex/values";
 import { adminMutation, adminQuery } from "./lib/auth";
-import { getOrThrow, groupingOf, participantsOf, sessionsOf } from "./lib/data";
+import { MSG_GROUPS_LOCKED, getOrThrow, groupingOf, participantsOf, sessionsOf } from "./lib/data";
 
 /** 조 편성 화면 데이터: 이 회차 편성 + 같은 행사 이전 회차 편성 + 참여자 */
 export const getBySession = adminQuery({
@@ -25,7 +25,7 @@ export const getBySession = adminQuery({
     }
     return {
       session: { _id: cur._id, no: cur.no, date: cur.date },
-      grouping: grouping ? { groupCount: grouping.groupCount, assignments: grouping.assignments } : null,
+      grouping: grouping ? { groupCount: grouping.groupCount, assignments: grouping.assignments, locked: grouping.locked ?? false } : null,
       prior,
       people,
     };
@@ -62,6 +62,8 @@ export const save = adminMutation({
     if (!Number.isInteger(groupCount) || groupCount < 2 || groupCount > 12) {
       throw new ConvexError("조 개수는 2~12개로 정하세요.");
     }
+    const existing = await groupingOf(ctx, sessionId);
+    if (existing?.locked) throw new ConvexError(MSG_GROUPS_LOCKED);
     const partIds = new Set((await participantsOf(ctx, session.eventId)).map((p) => p.memberId));
     const seen = new Set<string>();
     const clean = assignments.filter((a) => {
@@ -70,9 +72,23 @@ export const save = adminMutation({
       seen.add(a.memberId);
       return true;
     });
-    const existing = await groupingOf(ctx, sessionId);
     if (existing) await ctx.db.patch("groupings", existing._id, { groupCount, assignments: clean });
     else await ctx.db.insert("groupings", { sessionId, groupCount, assignments: clean });
+    return null;
+  },
+});
+
+/** 조 확정 / 확정 취소 */
+export const setLocked = adminMutation({
+  args: { sessionId: v.id("sessions"), locked: v.boolean() },
+  handler: async (ctx, { sessionId, locked }) => {
+    await getOrThrow(ctx, "sessions", sessionId);
+    const g = await groupingOf(ctx, sessionId);
+    if (!g || (locked && !g.assignments.length)) {
+      if (locked) throw new ConvexError("확정할 조 편성이 없어요. 먼저 조를 나눠 주세요.");
+      return null;
+    }
+    await ctx.db.patch("groupings", g._id, { locked });
     return null;
   },
 });

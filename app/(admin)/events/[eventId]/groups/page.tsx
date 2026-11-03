@@ -40,13 +40,23 @@ export default function GroupsTab() {
 function GroupsBoard({ sessionId }: { sessionId: Id<"sessions"> }) {
   const data = useAQ(api.groupings.getBySession, { sessionId });
   const saveM = useAM(api.groupings.save);
+  const setLockedM = useAM(api.groupings.setLocked);
+  const [lockBusy, setLockBusy] = useState(false);
   const [mode, setMode] = useState<GroupMode>("all");
   const [avoid, setAvoid] = useState(true);
   const [local, setLocal] = useState<Draft | null>(null);
   const [sheet, setSheet] = useState<Sheet>(null);
   const seq = useRef(0);
 
-  const people = useMemo(() => (data?.people ?? []).map((p) => ({ id: p.memberId as string, gender: p.gender, name: p.name })), [data]);
+  const people = useMemo(
+    () =>
+      (data?.people ?? []).map((p) => ({
+        id: p.memberId as string,
+        gender: p.gender,
+        name: p.name,
+      })),
+    [data],
+  );
   const byId = useMemo(() => new Map(people.map((p) => [p.id, p])), [people]);
   const ids = useMemo(() => people.map((p) => p.id), [people]);
   const priors: PriorGrouping[] = useMemo(
@@ -62,11 +72,15 @@ function GroupsBoard({ sessionId }: { sessionId: Id<"sessions"> }) {
   const server: Draft | null = useMemo(() => {
     if (!data) return null;
     if (!data.grouping) return { k: defaultGroupCount(people.length), assign: {} };
-    return { k: data.grouping.groupCount, assign: Object.fromEntries(data.grouping.assignments.map((a) => [a.memberId, a.group])) };
+    return {
+      k: data.grouping.groupCount,
+      assign: Object.fromEntries(data.grouping.assignments.map((a) => [a.memberId, a.group])),
+    };
   }, [data, people.length]);
 
   if (!data || !server) return data === null ? <div className="empty">회차를 찾을 수 없어요.</div> : <Loading />;
 
+  const locked = !!data.grouping?.locked;
   const cur = local ?? server;
   const { k, assign } = cur;
   const gender = (id: string) => byId.get(id)?.gender ?? "M";
@@ -86,13 +100,34 @@ function GroupsBoard({ sessionId }: { sessionId: Id<"sessions"> }) {
         groupCount: next.k,
         assignments: Object.entries(next.assign)
           .filter(([, g]) => g != null && g >= 0 && g < next.k)
-          .map(([memberId, group]) => ({ memberId: memberId as Id<"members">, group: group as number })),
+          .map(([memberId, group]) => ({
+            memberId: memberId as Id<"members">,
+            group: group as number,
+          })),
       });
     } catch (e) {
       toast(errInfo(e).message);
     } finally {
       if (seq.current === my) setLocal(null);
     }
+  };
+
+  const lock = async (v: boolean) => {
+    setLockBusy(true);
+    try {
+      await setLockedM({ sessionId, locked: v });
+      setSheet(null);
+      toast(
+        v ? `${data.session.no}회차 조를 확정했어요. 고치려면 ‘확정 취소’를 누르세요.` : "확정을 취소했어요. 이제 조를 고칠 수 있어요.",
+      );
+    } catch (e) {
+      toast(errInfo(e).message);
+    } finally {
+      setLockBusy(false);
+    }
+  };
+  const open = (s: Sheet) => {
+    if (!locked) setSheet(s);
   };
 
   const metInGroup = (id: string, gi: number, a: Assign = assign) =>
@@ -136,15 +171,23 @@ function GroupsBoard({ sessionId }: { sessionId: Id<"sessions"> }) {
   return (
     <>
       <SessBar />
-      <section className="settings">
+      {locked && (
+        <div className="notice lockbar">
+          <p>{data.session.no}회차 조가 확정돼 있어요. 바꾸려면 ‘확정 취소’를 누르세요.</p>
+          <button className="btn ghost sm" type="button" disabled={lockBusy} onClick={() => lock(false)}>
+            확정 취소
+          </button>
+        </div>
+      )}
+      <section className={`settings ${locked ? "locked" : ""}`}>
         <div className="set">
           <span className="lbl">조 개수</span>
           <div className="stepper">
-            <button type="button" aria-label="조 줄이기" disabled={k <= 2} onClick={() => changeK(k - 1)}>
+            <button type="button" aria-label="조 줄이기" disabled={locked || k <= 2} onClick={() => changeK(k - 1)}>
               −
             </button>
             <output className="num">{k}조</output>
-            <button type="button" aria-label="조 늘리기" disabled={k >= 12} onClick={() => changeK(k + 1)}>
+            <button type="button" aria-label="조 늘리기" disabled={locked || k >= 12} onClick={() => changeK(k + 1)}>
               +
             </button>
           </div>
@@ -169,35 +212,54 @@ function GroupsBoard({ sessionId }: { sessionId: Id<"sessions"> }) {
           </label>
         </div>
         <div className="go">
-          {prev && (
-            <button
-              className="btn ghost"
-              type="button"
-              onClick={() => {
-                commit({ k: prev.groupCount, assign: Object.fromEntries(prev.assignments.map((a) => [a.memberId, a.group])) });
-                toast(`${prev.no}회차 편성을 불러왔어요`);
-              }}
-            >
-              {prev.no}회차 편성 불러오기
-            </button>
+          {locked ? (
+            <span className="pill ok">확정됨</span>
+          ) : (
+            <>
+              {prev && (
+                <button
+                  className="btn ghost"
+                  type="button"
+                  onClick={() => {
+                    commit({
+                      k: prev.groupCount,
+                      assign: Object.fromEntries(prev.assignments.map((a) => [a.memberId, a.group])),
+                    });
+                    toast(`${prev.no}회차 편성을 불러왔어요`);
+                  }}
+                >
+                  {prev.no}회차 편성 불러오기
+                </button>
+              )}
+              <button
+                className="btn ghost"
+                type="button"
+                onClick={() => {
+                  commit({ k, assign: {} });
+                  toast("이 회차 조를 비웠어요");
+                }}
+              >
+                모두 비우기
+              </button>
+              <button className="btn big" type="button" onClick={randomize}>
+                랜덤 배정
+              </button>
+              <button
+                className="btn big ghost"
+                type="button"
+                disabled={lockBusy || !data.grouping?.assignments.length}
+                onClick={() => lock(true)}
+              >
+                조 확정
+              </button>
+            </>
           )}
-          <button
-            className="btn ghost"
-            type="button"
-            onClick={() => {
-              commit({ k, assign: {} });
-              toast("이 회차 조를 비웠어요");
-            }}
-          >
-            모두 비우기
-          </button>
-          <button className="btn big" type="button" onClick={randomize}>
-            랜덤 배정
-          </button>
         </div>
         <p className="modehint">
           {HINT[mode]}{" "}
-          {data.prior.length ? `겹침 비교 대상: ${data.prior.map((x) => `${x.no}회차`).join(", ")}.` : "이전 회차 편성이 없어 첫 편성입니다."}
+          {data.prior.length
+            ? `겹침 비교 대상: ${data.prior.map((x) => `${x.no}회차`).join(", ")}.`
+            : "이전 회차 편성이 없어 첫 편성입니다."}
         </p>
       </section>
 
@@ -242,9 +304,11 @@ function GroupsBoard({ sessionId }: { sessionId: Id<"sessions"> }) {
                       <span>
                         {GN(g)} <span className="num">{L.length}</span>
                       </span>
-                      <button type="button" onClick={() => setSheet({ kind: "add", gi, g })}>
-                        + 추가
-                      </button>
+                      {!locked && (
+                        <button type="button" onClick={() => open({ kind: "add", gi, g })}>
+                          + 추가
+                        </button>
+                      )}
                     </div>
                     <div className="chips">
                       {L.length ? (
@@ -253,7 +317,8 @@ function GroupsBoard({ sessionId }: { sessionId: Id<"sessions"> }) {
                             key={id}
                             type="button"
                             className={`chip ${g} ${metIds.has(id) ? "met" : ""} ${fixG === g ? "pinned" : ""}`}
-                            onClick={() => setSheet({ kind: "person", id })}
+                            aria-disabled={locked}
+                            onClick={() => open({ kind: "person", id })}
                           >
                             {name(id)}
                           </button>
@@ -281,20 +346,27 @@ function GroupsBoard({ sessionId }: { sessionId: Id<"sessions"> }) {
               .map((l, i) => (
                 <div className="chips" key={i}>
                   {l.map((id) => (
-                    <button key={id} type="button" className={`chip ${gender(id)}`} onClick={() => setSheet({ kind: "person", id })}>
+                    <button
+                      key={id}
+                      type="button"
+                      className={`chip ${gender(id)}`}
+                      aria-disabled={locked}
+                      onClick={() => open({ kind: "person", id })}
+                    >
                       {name(id)}
                     </button>
                   ))}
                 </div>
               ))}
-            <span className="hint">이름을 누르면 넣을 조를 고를 수 있어요.</span>
+            {!locked && <span className="hint">이름을 누르면 넣을 조를 고를 수 있어요.</span>}
           </>
         ) : (
           <h2>미배정 없음 · 참여자 {ids.length}명 모두 배정됨</h2>
         )}
       </section>
       <p className="hint" style={{ margin: 0 }}>
-        바꾸는 즉시 이 회차 편성으로 저장되고, 출석체크 카드에 조 번호가 표시됩니다. 이름을 누르면 다른 조로 옮기거나 뺄 수 있어요.
+        바꾸는 즉시 이 회차 편성으로 저장되고, 출석체크 카드에 조 번호가 표시됩니다. 이름을 누르면 다른 조로 옮기거나 뺄 수 있어요. 다
+        나눴으면 ‘조 확정’을 눌러 잠가 두세요.
       </p>
 
       {sheet?.kind === "person" && byId.has(sheet.id) && (
@@ -320,7 +392,11 @@ function GroupsBoard({ sessionId }: { sessionId: Id<"sessions"> }) {
           g={sheet.g}
           candidates={ids
             .filter((id) => gender(id) === sheet.g && !isAssigned(assign, id, k))
-            .map((id) => ({ id, name: name(id), met: metInGroup(id, sheet.gi).map(name) }))
+            .map((id) => ({
+              id,
+              name: name(id),
+              met: metInGroup(id, sheet.gi).map(name),
+            }))
             .sort((a, b) => a.met.length - b.met.length || koCompare(a.name, b.name))}
           onAdd={(list) => {
             const next = { ...assign };

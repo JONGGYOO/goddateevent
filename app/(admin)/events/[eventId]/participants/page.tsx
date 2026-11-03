@@ -10,14 +10,20 @@ import { useEvent } from "@/components/events/event-context";
 import { koCompare, matchAt } from "@/lib/hangul";
 import { errInfo } from "@/lib/errors";
 
-type Removing = { memberId: Id<"members">; name: string; attended: number } | null;
+type Removing = {
+  memberId: Id<"members">;
+  name: string;
+  attended: number;
+} | null;
 
 export default function ParticipantsTab() {
-  const { eventId } = useEvent();
+  const { eventId, overview } = useEvent();
+  const locked = !!overview.event.participantsLocked;
   const parts = useAQ(api.participants.listByEvent, { eventId });
   const pool = useAQ(api.participants.pool, { eventId });
   const addMany = useAM(api.participants.addMany);
   const removeP = useAM(api.participants.remove);
+  const setLocked = useAM(api.participants.setLocked);
   const [g, setG] = useState<GFilter>("ALL");
   const [q, setQ] = useState("");
   const [picked, setPicked] = useState<Set<Id<"members">>>(new Set());
@@ -54,6 +60,19 @@ export default function ParticipantsTab() {
     }
   };
 
+  const lock = async (v: boolean) => {
+    setBusy(true);
+    try {
+      await setLocked({ eventId, locked: v });
+      if (v) setPicked(new Set());
+      toast(v ? "참여 인원을 확정했어요. 고치려면 ‘확정 취소’를 누르세요." : "확정을 취소했어요. 이제 인원을 고칠 수 있어요.");
+    } catch (e) {
+      toast(errInfo(e).message);
+    } finally {
+      setBusy(false);
+    }
+  };
+
   const doRemove = async (memberId: Id<"members">, name: string) => {
     try {
       await removeP({ eventId, memberId });
@@ -66,10 +85,19 @@ export default function ParticipantsTab() {
   return (
     <>
       <p className="hint" style={{ margin: 0 }}>
-        회원 명부에서 이 행사에 참여할 사람을 골라 확정합니다. 확정한 인원만 조 편성과 출석체크 명단에 나옵니다.
+        회원 명부에서 이 행사에 참여할 사람을 골라 추가합니다. 추가한 인원만 조 편성과 출석체크 명단에 나옵니다. 다 고른 뒤 ‘인원 확정’을
+        누르면 실수로 바뀌지 않게 잠겨요.
       </p>
+      {locked && (
+        <div className="notice lockbar">
+          <p>참여 인원이 확정돼 있어요. 추가하거나 빼려면 ‘확정 취소’를 누르세요. (현장 등록은 확정 중에도 돼요)</p>
+          <button className="btn ghost sm" type="button" disabled={busy} onClick={() => lock(false)}>
+            확정 취소
+          </button>
+        </div>
+      )}
       <div className="two">
-        <section className="box pane">
+        <section className={`box pane ${locked ? "locked" : ""}`}>
           <h2>회원 명부에서 선택</h2>
           <div className="controls">
             <Seg value={g} options={G_OPTIONS} onChange={setG} label="성별" />
@@ -80,7 +108,7 @@ export default function ParticipantsTab() {
               className="btn ghost sm"
               type="button"
               onClick={() => setPicked(new Set([...selected, ...cand.map((m) => m._id)]))}
-              disabled={!cand.length}
+              disabled={!cand.length || locked}
             >
               보이는 사람 모두 선택
             </button>
@@ -90,8 +118,8 @@ export default function ParticipantsTab() {
               </button>
             )}
             <span className="spacer" />
-            <button className="btn" type="button" disabled={!selected.length || busy} onClick={confirm}>
-              선택한 {selected.length}명 참여 확정
+            <button className="btn" type="button" disabled={!selected.length || busy || locked} onClick={confirm}>
+              선택한 {selected.length}명 추가
             </button>
           </div>
           <div className="plist">
@@ -103,6 +131,7 @@ export default function ParticipantsTab() {
                   <input
                     type="checkbox"
                     checked={picked.has(m._id)}
+                    disabled={locked}
                     onChange={(e) => {
                       const next = new Set(picked);
                       if (e.target.checked) next.add(m._id);
@@ -114,7 +143,8 @@ export default function ParticipantsTab() {
                   <span className="nm">
                     <Hl text={m.name} q={qn} />
                   </span>
-                  {(dup.get(m.name) ?? 0) > 1 && <span className="hint num">{m.phone ? m.phone.slice(-4) : (m.church ?? "")}</span>}
+                  <span className="hint num">{m.phone ? `☎ ${m.phone.slice(-4)}` : ""}</span>
+                  {(dup.get(m.name) ?? 0) > 1 && <span className="dupm">동명이인{!m.phone && m.church ? ` · ${m.church}` : ""}</span>}
                   <span className={`ex ${m.history.length ? "" : "ok"}`}>
                     {m.history.length ? m.history.map((n) => `제${n}회`).join(" · ") : "첫 참여"}
                   </span>
@@ -132,7 +162,17 @@ export default function ParticipantsTab() {
           <h2>
             참여 확정 인원 <span className="pill M">남 {M.length}</span>
             <span className="pill F">여 {F.length}</span>
-            {M.length !== F.length && M.length + F.length > 0 && <span className="pill w">남녀 {Math.abs(M.length - F.length)}명 차이</span>}
+            {M.length !== F.length && M.length + F.length > 0 && (
+              <span className="pill w">남녀 {Math.abs(M.length - F.length)}명 차이</span>
+            )}
+            <span className="spacer" />
+            {locked ? (
+              <span className="pill ok">확정됨</span>
+            ) : (
+              <button className="btn sm" type="button" disabled={busy || !parts?.length} onClick={() => lock(true)}>
+                인원 확정
+              </button>
+            )}
           </h2>
           {!parts ? (
             <Loading />
@@ -149,15 +189,24 @@ export default function ParticipantsTab() {
                       L.map((p) => (
                         <span className={`rchip ${gg}`} key={p._id}>
                           {p.name}
-                          <button
-                            type="button"
-                            aria-label={`${p.name} 빼기`}
-                            onClick={() =>
-                              p.attended ? setRemoving({ memberId: p.memberId, name: p.name, attended: p.attended }) : doRemove(p.memberId, p.name)
-                            }
-                          >
-                            ×
-                          </button>
+                          {p.phone && <span className="tl num">{p.phone.slice(-4)}</span>}
+                          {!locked && (
+                            <button
+                              type="button"
+                              aria-label={`${p.name} 빼기`}
+                              onClick={() =>
+                                p.attended
+                                  ? setRemoving({
+                                      memberId: p.memberId,
+                                      name: p.name,
+                                      attended: p.attended,
+                                    })
+                                  : doRemove(p.memberId, p.name)
+                              }
+                            >
+                              ×
+                            </button>
+                          )}
                         </span>
                       ))
                     ) : (
