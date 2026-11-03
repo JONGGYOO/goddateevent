@@ -10,7 +10,7 @@ import type { FunctionReturnType } from "convex/server";
 import { fmtSession, hm } from "@/lib/date";
 import { koCompare, matchAt } from "@/lib/hangul";
 
-type Scope = "event" | "all";
+type Scope = "event" | "cars" | "all";
 type SortKey = "name" | "low" | "many";
 
 export default function StatsPage() {
@@ -26,7 +26,8 @@ function Stats() {
   const router = useRouter();
   const today = useToday();
   const events = useAQ(api.events.list, { today });
-  const scope: Scope = search.get("scope") === "all" ? "all" : "event";
+  const sp = search.get("scope");
+  const scope: Scope = sp === "all" || sp === "cars" ? sp : "event";
   const [g, setG] = useState<GFilter>("ALL");
   const [q, setQ] = useState(search.get("q") ?? "");
   const [sort, setSort] = useState<SortKey>("name");
@@ -40,7 +41,7 @@ function Stats() {
 
   const setScope = (s: Scope) => {
     if (s === "event" && sort === "many") setSort("name");
-    router.replace(s === "all" ? "/stats?scope=all" : "/stats", { scroll: false });
+    router.replace(s === "event" ? "/stats" : `/stats?scope=${s}`, { scroll: false });
   };
 
   return (
@@ -48,7 +49,7 @@ function Stats() {
       <div className="pagehead">
         <div>
           <h1>통계</h1>
-          <span className="sub">행사별 회차 출석과 회원별 참여 행사·출석률을 봅니다. 출석률은 지난 회차와 오늘 회차만 계산해요.</span>
+          <span className="sub">행사별 회차 출석, 회차별 차량 도착 내역, 회원별 참여 행사·출석률을 봅니다. 출석률은 지난 회차와 오늘 회차만 계산해요.</span>
         </div>
       </div>
       <div className="controls">
@@ -58,10 +59,11 @@ function Stats() {
           label="통계 범위"
           options={[
             ["event", "행사별"],
+            ["cars", "차량 내역"],
             ["all", "회원 누적"],
           ]}
         />
-        {scope === "event" && events && events.length > 0 && (
+        {scope !== "all" && events && events.length > 0 && (
           <select className="sel" aria-label="행사" value={evId ?? ""} onChange={(e) => setEventId(e.target.value as Id<"events">)}>
             {events.map((e) => (
               <option key={e._id} value={e._id}>
@@ -71,7 +73,7 @@ function Stats() {
           </select>
         )}
       </div>
-      {scope === "event" ? (
+      {scope !== "all" ? (
         !events ? (
           <Loading />
         ) : !evId ? (
@@ -79,7 +81,11 @@ function Stats() {
             <strong>행사가 없어요</strong>
           </div>
         ) : (
-          <EventStats eventId={evId} today={today} g={g} setG={setG} q={q} setQ={setQ} sort={sort} setSort={setSort} />
+          scope === "cars" ? (
+            <CarStats key={evId} eventId={evId} today={today} />
+          ) : (
+            <EventStats eventId={evId} today={today} g={g} setG={setG} q={q} setQ={setQ} sort={sort} setSort={setSort} />
+          )
         )
       ) : (
         <MemberStats today={today} g={g} setG={setG} q={q} setQ={setQ} sort={sort} setSort={setSort} />
@@ -213,9 +219,6 @@ function EventStats({ eventId, today, ...f }: { eventId: Id<"events">; today: st
         </table>
       </div>
 
-      <h2 className="sectitle">회차별 차량 내역</h2>
-      <SessionCars sessions={sessions} people={people} today={today} />
-
       <h2 className="sectitle">참여자별 출석</h2>
       <Filters
         {...f}
@@ -299,6 +302,20 @@ function EventStats({ eventId, today, ...f }: { eventId: Id<"events">; today: st
 }
 
 type EventStatsData = NonNullable<FunctionReturnType<typeof api.stats.byEvent>>;
+
+function CarStats({ eventId, today }: { eventId: Id<"events">; today: string }) {
+  const data = useAQ(api.stats.byEvent, { eventId });
+  if (data === undefined) return <Loading />;
+  if (data === null) return <div className="empty">행사를 찾을 수 없어요.</div>;
+  return (
+    <div className="stack">
+      <p className="hint" style={{ margin: 0 }}>
+        회차를 고르면 참여자 등록 차량의 도착 시각과 체크한 태블릿을 볼 수 있어요.
+      </p>
+      <SessionCars sessions={data.sessions} people={data.people} today={today} />
+    </div>
+  );
+}
 
 /** 회차를 골라 참여자 등록 차량과 도착 여부(시각·기기)를 본다 */
 function SessionCars({ sessions, people, today }: { sessions: EventStatsData["sessions"]; people: EventStatsData["people"]; today: string }) {
