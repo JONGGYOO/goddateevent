@@ -24,7 +24,7 @@ export const byEvent = adminQuery({
       const att = (await attendanceOf(ctx, s._id)).filter((a) => ids.has(a.memberId)).map((a) => a.memberId);
       const carChecks = (await carChecksOf(ctx, s._id))
         .filter((c) => ids.has(c.memberId))
-        .map((c) => ({ memberId: c.memberId, plate: c.plate, at: c.checkedAt, device: c.device }));
+        .map((c) => ({ memberId: c.memberId, plate: c.plate, at: c.checkedAt }));
       sessions.push({ _id: s._id, no: s.no, date: s.date, attended: att, cars: carChecks.length, carChecks });
     }
     return { event: { _id: event._id, no: event.no, name: event.name }, people, sessions };

@@ -17,14 +17,12 @@ export function DetailSheet({
   person,
   sessionId,
   sessionNo,
-  device,
   allPeople,
   onClose,
 }: {
   person: Person;
   sessionId: Id<"sessions">;
   sessionNo: number;
-  device: "A" | "B";
   allPeople: Person[];
   onClose: () => void;
 }) {
@@ -43,10 +41,10 @@ export function DetailSheet({
     setBusy(true);
     try {
       if (p.car?.plate === plate) {
-        await carOut({ sessionId, memberId: p.memberId, device });
+        await carOut({ sessionId, memberId: p.memberId });
         toast(`${plate} 도착 취소`);
       } else {
-        await carIn({ sessionId, memberId: p.memberId, plate, device });
+        await carIn({ sessionId, memberId: p.memberId, plate });
         toast(
           <span>
             <strong>{plate}</strong> 도착 · {p.name}
@@ -69,7 +67,7 @@ export function DetailSheet({
     setBusy(true);
     setErr("");
     try {
-      await registerPlate({ sessionId, memberId: p.memberId, plate, device });
+      await registerPlate({ sessionId, memberId: p.memberId, plate });
       setFront("");
       setBack("");
       toast(
@@ -94,7 +92,7 @@ export function DetailSheet({
         <dt>연락처</dt>
         <dd className="num">{p.phone ? maskPhone(p.phone) : "-"}</dd>
         <dt>출석</dt>
-        <dd className="num">{p.att ? `${hm(p.att.at)} · 태블릿 ${p.att.device}` : "미출석"}</dd>
+        <dd className="num">{p.att ? hm(p.att.at) : "미출석"}</dd>
         {p.memo && (
           <>
             <dt>메모</dt>
@@ -146,7 +144,7 @@ export function DetailSheet({
               onClick={async () => {
                 setBusy(true);
                 try {
-                  await cancel({ sessionId, memberId: p.memberId, device });
+                  await cancel({ sessionId, memberId: p.memberId });
                   toast(`${p.name} 출석을 취소했어요`);
                   onClose();
                 } catch (e) {

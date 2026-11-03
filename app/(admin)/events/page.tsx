@@ -39,7 +39,7 @@ export default function EventsPage() {
       const r = await create({ no: n, name });
       setNo("");
       setName("");
-      toast(`제${r.no}회 ${r.name}를 등록했어요. 눌러서 회차를 추가하세요.`);
+      toast(`제${r.no}회 ${r.name}를 등록했어요. 눌러서 참여 인원을 고르세요.`);
     } catch (e2) {
       setErr(errInfo(e2));
     } finally {
@@ -108,9 +108,9 @@ export default function EventsPage() {
                   className="it go"
                   role="link"
                   tabIndex={0}
-                  onClick={() => router.push(`/events/${e._id}/sessions`)}
+                  onClick={() => router.push(`/events/${e._id}/participants`)}
                   onKeyDown={(k) => {
-                    if (k.key === "Enter" && k.target === k.currentTarget) router.push(`/events/${e._id}/sessions`);
+                    if (k.key === "Enter" && k.target === k.currentTarget) router.push(`/events/${e._id}/participants`);
                   }}
                 >
                   <span className={`badge ${e.next ? "" : "off"}`}>제{e.no}회</span>
@@ -150,7 +150,7 @@ export default function EventsPage() {
                     >
                       삭제
                     </button>
-                    <button className="btn sm" type="button" onClick={() => router.push(`/events/${e._id}/sessions`)}>
+                    <button className="btn sm" type="button" onClick={() => router.push(`/events/${e._id}/participants`)}>
                       열기
                     </button>
                   </div>

@@ -68,9 +68,9 @@ export const insertEvent = internalMutation({
         grouping: v.optional(
           v.object({ groupCount: v.number(), assignments: v.array(v.object({ memberId: v.id("members"), group: v.number() })) }),
         ),
-        attendance: v.array(v.object({ memberId: v.id("members"), checkedAt: v.number(), device: v.string() })),
-        cars: v.array(v.object({ memberId: v.id("members"), plate: v.string(), checkedAt: v.number(), device: v.string() })),
-        logs: v.array(v.object({ memberId: v.id("members"), kind: logKind, device: v.string(), at: v.number() })),
+        attendance: v.array(v.object({ memberId: v.id("members"), checkedAt: v.number() })),
+        cars: v.array(v.object({ memberId: v.id("members"), plate: v.string(), checkedAt: v.number() })),
+        logs: v.array(v.object({ memberId: v.id("members"), kind: logKind, at: v.number() })),
       }),
     ),
   },
@@ -91,9 +91,9 @@ export const insertEvent = internalMutation({
 type SeedSession = {
   date: string;
   grouping?: { groupCount: number; assignments: { memberId: Id<"members">; group: number }[] };
-  attendance: { memberId: Id<"members">; checkedAt: number; device: string }[];
-  cars: { memberId: Id<"members">; plate: string; checkedAt: number; device: string }[];
-  logs: { memberId: Id<"members">; kind: "in" | "car"; device: string; at: number }[];
+  attendance: { memberId: Id<"members">; checkedAt: number }[];
+  cars: { memberId: Id<"members">; plate: string; checkedAt: number }[];
+  logs: { memberId: Id<"members">; kind: "in" | "car"; at: number }[];
 };
 
 export const run = internalAction({
@@ -156,14 +156,13 @@ export const run = internalAction({
           for (const p of people) {
             if (ri(100) >= 88) continue;
             const at = base + ri(45) * 60000;
-            const device = ri(2) ? "A" : "B";
-            s.attendance.push({ memberId: p.id, checkedAt: at, device });
-            s.logs.push({ memberId: p.id, kind: "in", device, at });
+            s.attendance.push({ memberId: p.id, checkedAt: at });
+            s.logs.push({ memberId: p.id, kind: "in", at });
             const c = carsOf.get(p.id) ?? [];
             if (c.length && ri(10) < 8) {
               const cat = at - ri(5) * 60000;
-              s.cars.push({ memberId: p.id, plate: c[0], checkedAt: cat, device: "A" });
-              s.logs.push({ memberId: p.id, kind: "car", device: "A", at: cat });
+              s.cars.push({ memberId: p.id, plate: c[0], checkedAt: cat });
+              s.logs.push({ memberId: p.id, kind: "car", at: cat });
             }
           }
           s.logs.sort((a, b) => a.at - b.at);

@@ -8,7 +8,7 @@ export default function EventIndex() {
   const { eventId } = useParams<{ eventId: string }>();
   const router = useRouter();
   useEffect(() => {
-    router.replace(`/events/${eventId}/sessions`);
+    router.replace(`/events/${eventId}/participants`);
   }, [eventId, router]);
   return <Loading />;
 }

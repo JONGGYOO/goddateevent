@@ -14,14 +14,12 @@ import { readPlateFields } from "@/lib/plate";
 export function WalkIn({
   sessionId,
   sessionNo,
-  device,
   initialName,
   initialGender,
   onClose,
 }: {
   sessionId: Id<"sessions">;
   sessionNo: number;
-  device: "A" | "B";
   initialName: string;
   initialGender: G;
   onClose: () => void;
@@ -50,7 +48,6 @@ export function WalkIn({
         gender,
         phone: phone.trim() || undefined,
         plate: r.plate ?? undefined,
-        device,
       });
       toast(
         <span>

@@ -3,7 +3,7 @@
 import { ConvexProvider, ConvexReactClient, useMutation, useQuery } from "convex/react";
 import type { FunctionArgs, FunctionReference, FunctionReturnType } from "convex/server";
 import { useRouter } from "next/navigation";
-import { createContext, useCallback, useContext, useEffect, useState, useSyncExternalStore, type ReactNode } from "react";
+import { createContext, useCallback, useContext, useEffect, useState, type ReactNode } from "react";
 import { toast } from "sonner";
 import { errInfo } from "@/lib/errors";
 
@@ -57,42 +57,6 @@ export function useAM<F extends TokenFn<"mutation">>(fn: F): (args: ArgsOf<F>) =
     },
     [m, token, router],
   );
-}
-
-/* 이 기기: 태블릿 A / B (localStorage에 기억) */
-const DEVICE_KEY = "gd-device";
-const deviceListeners = new Set<() => void>();
-let deviceFallback: "A" | "B" = "A"; // 저장소를 못 쓰는 환경용
-
-function subscribeDevice(cb: () => void) {
-  deviceListeners.add(cb);
-  window.addEventListener("storage", cb);
-  return () => {
-    deviceListeners.delete(cb);
-    window.removeEventListener("storage", cb);
-  };
-}
-function readDevice(): "A" | "B" {
-  try {
-    const v = localStorage.getItem(DEVICE_KEY);
-    return v === "B" ? "B" : v === "A" ? "A" : deviceFallback;
-  } catch {
-    return deviceFallback;
-  }
-}
-
-export function useDevice(): ["A" | "B", (d: "A" | "B") => void] {
-  const dev = useSyncExternalStore(subscribeDevice, readDevice, () => "A" as const);
-  const set = useCallback((d: "A" | "B") => {
-    deviceFallback = d;
-    try {
-      localStorage.setItem(DEVICE_KEY, d);
-    } catch {
-      /* 무시: deviceFallback으로 기억 */
-    }
-    deviceListeners.forEach((l) => l());
-  }, []);
-  return [dev, set];
 }
 
 /** 서울 기준 오늘 (자정이 지나면 갱신) */

@@ -4,7 +4,7 @@ import { useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
 import { api } from "@/convex/_generated/api";
 import type { Id } from "@/convex/_generated/dataModel";
-import { useAM, useAQ, useDevice } from "@/components/admin";
+import { useAM, useAQ } from "@/components/admin";
 import { G_OPTIONS, Hl, Loading, SearchBox, Seg, Stat, countNames, type GFilter } from "@/components/kit";
 import { NeedsSetup, SessBar, useEvent } from "@/components/events/event-context";
 import { DetailSheet } from "@/components/check/detail-sheet";
@@ -30,7 +30,6 @@ function CheckBoard({ sessionId }: { sessionId: Id<"sessions"> }) {
   const cancel = useAM(api.checkin.cancelCheckIn);
   const carIn = useAM(api.checkin.carIn);
   const carOut = useAM(api.checkin.carOut);
-  const [dev, setDev] = useDevice();
   const [mode, setMode] = useState<"people" | "car">("people");
   const [g, setG] = useState<GFilter>("ALL");
   const [q, setQ] = useState("");
@@ -80,7 +79,7 @@ function CheckBoard({ sessionId }: { sessionId: Id<"sessions"> }) {
       searchRef.current?.focus();
     }
     try {
-      const r = await checkIn({ sessionId, memberId: p.memberId, device: dev });
+      const r = await checkIn({ sessionId, memberId: p.memberId });
       const msg = (
         <span>
           <strong>{r.name}</strong> 출석{r.group ? <> · <strong>{r.group}조</strong></> : null}
@@ -92,12 +91,12 @@ function CheckBoard({ sessionId }: { sessionId: Id<"sessions"> }) {
           action: {
             label: "되돌리기",
             onClick: () => {
-              cancel({ sessionId, memberId: p.memberId, device: dev, undo: true }).catch((e) => toast(errInfo(e).message));
+              cancel({ sessionId, memberId: p.memberId, undo: true }).catch((e) => toast(errInfo(e).message));
             },
           },
         });
       } else {
-        toast(msg, { description: `이미 태블릿 ${r.device}에서 ${hm(r.at)}에 출석 처리됐어요` });
+        toast(msg, { description: `이미 ${hm(r.at)}에 출석 처리됐어요` });
       }
     } catch (e) {
       toast(errInfo(e).message);
@@ -113,14 +112,14 @@ function CheckBoard({ sessionId }: { sessionId: Id<"sessions"> }) {
   const tapPlate = async (p: Person, plate: string) => {
     try {
       if (p.car?.plate === plate) {
-        await carOut({ sessionId, memberId: p.memberId, device: dev });
+        await carOut({ sessionId, memberId: p.memberId });
         toast(`${plate} 도착 취소`);
       } else {
         if (vq) {
           setVq("");
           plateRef.current?.focus();
         }
-        await carIn({ sessionId, memberId: p.memberId, plate, device: dev });
+        await carIn({ sessionId, memberId: p.memberId, plate });
         toast(
           <span>
             <strong>{plate}</strong> 도착 · {p.name}
@@ -130,7 +129,7 @@ function CheckBoard({ sessionId }: { sessionId: Id<"sessions"> }) {
             action: {
               label: "되돌리기",
               onClick: () => {
-                carOut({ sessionId, memberId: p.memberId, device: dev, undo: true }).catch((e) => toast(errInfo(e).message));
+                carOut({ sessionId, memberId: p.memberId, undo: true }).catch((e) => toast(errInfo(e).message));
               },
             },
           },
@@ -155,16 +154,6 @@ function CheckBoard({ sessionId }: { sessionId: Id<"sessions"> }) {
     <>
       <SessBar />
       <div className="controls">
-        <span className="hint">이 기기</span>
-        <Seg
-          value={dev}
-          options={[
-            ["A", "태블릿 A"],
-            ["B", "태블릿 B"],
-          ]}
-          onChange={setDev}
-          label="이 기기"
-        />
         <span className="spacer" />
         <Seg
           value={mode}
@@ -315,34 +304,31 @@ function CheckBoard({ sessionId }: { sessionId: Id<"sessions"> }) {
                       {LOG_LABEL[l.kind]}
                     </span>
                   </span>
-                  <span className="dv">{l.device}</span>
                 </li>
               ))
             ) : (
               <li>
                 <span />
                 <span className="hint">아직 체크한 사람이 없어요</span>
-                <span />
               </li>
             )}
           </ol>
           <p className="hint" style={{ margin: 0, borderTop: "1px solid var(--line)", paddingTop: 10 }}>
-            태블릿 A·B 화면은 실시간으로 함께 바뀝니다.
+            여러 기기에서 같은 회차를 열면 화면이 실시간으로 함께 바뀝니다.
           </p>
         </aside>
       </div>
 
       {detailPerson && (
-        <DetailSheet person={detailPerson} sessionId={sessionId} sessionNo={s.no} device={dev} allPeople={people} onClose={() => setDetail(null)} />
+        <DetailSheet person={detailPerson} sessionId={sessionId} sessionNo={s.no} allPeople={people} onClose={() => setDetail(null)} />
       )}
       {memoPerson && (
-        <MemoSheet key={memoPerson.memberId} person={memoPerson} sessionId={sessionId} sessionNo={s.no} device={dev} onClose={() => setMemoFor(null)} />
+        <MemoSheet key={memoPerson.memberId} person={memoPerson} sessionId={sessionId} sessionNo={s.no} onClose={() => setMemoFor(null)} />
       )}
       {walkIn && (
         <WalkIn
           sessionId={sessionId}
           sessionNo={s.no}
-          device={dev}
           initialName={stripCho(q.trim()).replace(/\d/g, "")}
           initialGender={g === "F" ? "F" : "M"}
           onClose={() => {

@@ -157,8 +157,7 @@ export async function addLog(
   sessionId: Id<"sessions">,
   memberId: Id<"members">,
   kind: Doc<"checkLogs">["kind"],
-  device: string,
   at: number,
 ) {
-  await ctx.db.insert("checkLogs", { sessionId, memberId, kind, device, at });
+  await ctx.db.insert("checkLogs", { sessionId, memberId, kind, at });
 }

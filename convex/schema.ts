@@ -53,7 +53,7 @@ export default defineSchema({
     sessionId: v.id("sessions"),
     memberId: v.id("members"),
     checkedAt: v.number(),
-    device: v.string(), // "A" | "B" (태블릿 구분)
+    device: v.optional(v.string()), // 쓰지 않음 (예전 태블릿 A/B 기록 호환용)
   })
     .index("by_session", ["sessionId"])
     .index("by_session_member", ["sessionId", "memberId"])
@@ -65,7 +65,7 @@ export default defineSchema({
     memberId: v.id("members"),
     plate: v.string(),
     checkedAt: v.number(),
-    device: v.string(),
+    device: v.optional(v.string()), // 쓰지 않음 (예전 기록 호환용)
   })
     .index("by_session", ["sessionId"])
     .index("by_session_member", ["sessionId", "memberId"]),
@@ -75,7 +75,7 @@ export default defineSchema({
     sessionId: v.id("sessions"),
     memberId: v.id("members"),
     kind: logKind,
-    device: v.string(),
+    device: v.optional(v.string()), // 쓰지 않음 (예전 기록 호환용)
     at: v.number(),
   }).index("by_session", ["sessionId"]),
 
@@ -100,7 +100,7 @@ export default defineSchema({
     memberId: v.id("members"),
     codeIds: v.array(v.id("codes")),
     text: v.optional(v.string()),
-    device: v.string(),
+    device: v.optional(v.string()), // 쓰지 않음 (예전 기록 호환용)
     updatedAt: v.number(),
   })
     .index("by_session", ["sessionId"])

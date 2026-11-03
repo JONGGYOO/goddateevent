@@ -57,26 +57,26 @@ export function SessBar() {
   );
 }
 
-/** 회차나 참여자가 없으면 해당 단계로 안내 */
+/** 참여자나 회차가 없으면 해당 단계로 안내 */
 export function NeedsSetup() {
   const { overview, hrefFor } = useEvent();
-  if (!overview.sessions.length)
-    return (
-      <div className="empty">
-        <strong>회차가 없어요</strong>
-        <span className="hint">1단계에서 회차(날짜)를 먼저 추가하세요.</span>
-        <Link className="btn" href={hrefFor("sessions")}>
-          회차 추가하러 가기
-        </Link>
-      </div>
-    );
   if (!overview.participantCount)
     return (
       <div className="empty">
         <strong>참여 인원이 없어요</strong>
-        <span className="hint">2단계에서 회원 명부에서 참여자를 골라 확정하세요.</span>
+        <span className="hint">1단계에서 회원 명부에서 참여자를 골라 추가하세요.</span>
         <Link className="btn" href={hrefFor("participants")}>
           참여 인원 정하러 가기
+        </Link>
+      </div>
+    );
+  if (!overview.sessions.length)
+    return (
+      <div className="empty">
+        <strong>회차가 없어요</strong>
+        <span className="hint">2단계에서 회차(날짜)를 먼저 추가하세요.</span>
+        <Link className="btn" href={hrefFor("sessions")}>
+          회차 추가하러 가기
         </Link>
       </div>
     );

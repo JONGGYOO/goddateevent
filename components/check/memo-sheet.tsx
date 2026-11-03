@@ -17,13 +17,11 @@ export function MemoSheet({
   person,
   sessionId,
   sessionNo,
-  device,
   onClose,
 }: {
   person: Person;
   sessionId: Id<"sessions">;
   sessionNo: number;
-  device: "A" | "B";
   onClose: () => void;
 }) {
   const data = useAQ(api.codes.byKey, { key: CHECK_MEMO });
@@ -47,7 +45,7 @@ export function MemoSheet({
     setBusy(true);
     setErr("");
     try {
-      await setMemo({ sessionId, memberId: p.memberId, codeIds: clear ? [] : [...picked], text: clear ? "" : text, device });
+      await setMemo({ sessionId, memberId: p.memberId, codeIds: clear ? [] : [...picked], text: clear ? "" : text });
       toast(clear || (!picked.size && !text.trim()) ? `${p.name} 메모를 지웠어요` : `${p.name} 메모를 저장했어요`);
       onClose();
     } catch (e) {
@@ -67,7 +65,7 @@ export function MemoSheet({
       </ModalTitle>
       <p className="hint" style={{ margin: 0 }}>
         해당하는 항목을 눌러 고르세요. 메모만 저장되고 출석 처리는 되지 않아요.
-        {p.memo && ` 마지막 저장: ${hm(p.memo.at)} · 태블릿 ${p.memo.device}`}
+        {p.memo && ` 마지막 저장: ${hm(p.memo.at)}`}
       </p>
       {data === undefined ? (
         <Loading />

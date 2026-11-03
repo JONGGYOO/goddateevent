@@ -10,8 +10,8 @@ import { Loading } from "@/components/kit";
 import { EventContext, defaultSession, type EventCtx } from "@/components/events/event-context";
 
 const TABS = [
-  ["sessions", "1", "회차 관리"],
-  ["participants", "2", "참여 인원"],
+  ["participants", "1", "참여 인원"],
+  ["sessions", "2", "회차 관리"],
   ["groups", "3", "조 편성"],
   ["check", "4", "출석체크"],
 ] as const;
@@ -64,7 +64,7 @@ function EventShell({ children }: { children: ReactNode }) {
     );
 
   const { event, male, female, sessions } = overview;
-  const tab = TABS.find(([t]) => pathname.endsWith(`/${t}`))?.[0] ?? "sessions";
+  const tab = TABS.find(([t]) => pathname.endsWith(`/${t}`))?.[0] ?? "participants";
   const summary: Record<(typeof TABS)[number][0], string> = {
     sessions: `${sessions.length}개 회차`,
     participants: `남 ${male} · 여 ${female}${event.participantsLocked ? " · 확정" : ""}`,
