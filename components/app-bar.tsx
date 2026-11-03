@@ -8,6 +8,7 @@ const NAV = [
   ["/members", "회원관리"],
   ["/events", "행사관리"],
   ["/stats", "통계"],
+  ["/codes", "공통코드"],
 ] as const;
 
 export function AppBar() {

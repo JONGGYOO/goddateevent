@@ -308,6 +308,20 @@
   .sess[aria-current="true"] { background: var(--brand); border-color: var(--brand); color: var(--brand-ink); }
 
   /* 참여 인원 */
+  /* 공통코드 */
+  .codesplit { display: grid; grid-template-columns: 300px minmax(0, 1fr); gap: 16px; align-items: start; }
+  .list > .it.grpit { grid-template-columns: minmax(0, 1fr); border: 0; border-bottom: 1px solid var(--line); background: transparent; color: inherit; font: inherit; text-align: left; min-height: 64px; }
+  .list > .it.grpit:last-child { border-bottom: 0; }
+  .list > .it.grpit[aria-current="true"] { background: var(--brand-soft); box-shadow: inset 4px 0 0 var(--brand); }
+  .codeform { padding: 16px; gap: 12px; }
+  .codehead { padding: 14px 16px; display: flex; gap: 12px; align-items: center; justify-content: space-between; flex-wrap: wrap; }
+  .codehead h2 { margin: 0 0 4px; font-size: 20px; display: flex; gap: 8px; align-items: center; }
+  .codehead .acts { display: flex; gap: 8px; }
+  .inform.codeadd { grid-template-columns: minmax(0, 1fr) auto; }
+  .list > .it.coderow { grid-template-columns: auto minmax(0, 1fr) auto; }
+  .list > .it.coderow.off .t1 { color: var(--sub); text-decoration: line-through; }
+  .coderow .ord { display: flex; gap: 4px; }
+  .coderow .ord .btn { width: 36px; padding: 0; }
   .two { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 14px; align-items: start; }
   .pane { display: flex; flex-direction: column; gap: 10px; min-width: 0; padding: 14px; }
   .pane h2 { margin: 0; font-size: 14px; color: var(--sub); letter-spacing: 0.04em; display: flex; align-items: center; gap: 8px; flex-wrap: wrap; font-weight: 700; }
@@ -372,8 +386,14 @@
 
   /* 출석 */
   .cgrid { display: grid; grid-template-columns: repeat(auto-fill, minmax(158px, 1fr)); gap: 10px; }
-  .card { position: relative; text-align: left; border: 1.5px solid var(--line); background: var(--surface); border-radius: 14px; padding: 12px 12px 10px; min-height: 108px; display: flex; flex-direction: column; gap: 4px; box-shadow: var(--shadow); transition: transform 0.08s; }
-  .card:active { transform: scale(0.97); }
+  .card { position: relative; border: 1.5px solid var(--line); background: var(--surface); border-radius: 14px; overflow: hidden; display: flex; flex-direction: column; box-shadow: var(--shadow); transition: transform 0.08s; }
+  .card:has(.cbody:active) { transform: scale(0.97); }
+  .card .cbody { border: 0; background: transparent; color: inherit; font: inherit; text-align: left; padding: 12px 12px 10px; min-height: 104px; flex: 1; display: flex; flex-direction: column; gap: 4px; }
+  .card .cmemo { border: 0; border-top: 1px dashed var(--line); background: var(--bg); color: var(--sub); font: inherit; font-size: 13px; text-align: left; padding: 6px 10px; min-height: 44px; display: flex; flex-wrap: wrap; align-items: center; gap: 4px; min-width: 0; }
+  .card .cmemo .add { font-weight: 600; }
+  .card .cmemo .tag { background: var(--warn-soft); color: var(--warn); border-radius: 6px; padding: 2px 7px; font-size: 12px; font-weight: 700; }
+  .card .cmemo .txt { color: var(--ink); max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .card.on .cmemo { border-top-color: var(--ok); background: transparent; }
   .card .g { position: absolute; left: 0; top: 12px; bottom: 12px; width: 4px; border-radius: 0 3px 3px 0; }
   .card.M .g { background: var(--male); }
   .card.F .g { background: var(--female); }
@@ -388,7 +408,10 @@
   .card.on .st { background: var(--ok); color: var(--surface); }
   .card .cf { font-size: 11px; font-weight: 700; padding: 2px 6px; border-radius: 5px; border: 1px solid var(--line); color: var(--sub); }
   .card .cf.y { border-color: var(--ok); color: var(--ok); }
-  .card:disabled { opacity: 0.6; }
+  .codepick { display: flex; flex-wrap: wrap; gap: 8px; }
+  .codechip { border: 1.5px solid var(--line); background: var(--surface); color: var(--ink); border-radius: 10px; padding: 8px 14px; min-height: 44px; font-weight: 600; font-size: 15px; }
+  .codechip[aria-pressed="true"] { background: var(--warn-soft); border-color: var(--warn); color: var(--warn); }
+  .codechip[aria-pressed="true"]::before { content: "✓ "; }
   .ckmain { display: grid; grid-template-columns: minmax(0, 1fr) 290px; gap: 14px; align-items: start; }
   .cklog { padding: 14px; display: flex; flex-direction: column; gap: 10px; position: sticky; top: 70px; }
   .cklog h2 { font-size: 14px; margin: 0; color: var(--sub); letter-spacing: 0.04em; font-weight: 700; }
@@ -455,7 +478,7 @@
   .loginbox h1 { font-family: var(--f-display); font-weight: 700; font-size: 26px; margin: 0; }
 
   @media (max-width: 980px) {
-    .ckmain, .two { grid-template-columns: minmax(0, 1fr); }
+    .ckmain, .two, .codesplit { grid-template-columns: minmax(0, 1fr); }
     .cklog { position: static; }
   }
   @media (max-width: 700px) {
@@ -467,6 +490,10 @@
     .inform > .btn, .inform > .wide, .list > .it.edit .acts { grid-column: 1 / -1; }
     .list > .it { grid-template-columns: 72px minmax(0, 1fr); }
     .list > .it .acts { grid-column: 1 / -1; }
+    .list > .it.grpit { grid-template-columns: minmax(0, 1fr); }
+    .list > .it.coderow { grid-template-columns: auto minmax(0, 1fr); }
+    .inform.codeadd { grid-template-columns: minmax(0, 1fr) auto; }
+    .inform.codeadd > .btn { grid-column: auto; }
     .appbar .who .label { display: none; }
   }
 }

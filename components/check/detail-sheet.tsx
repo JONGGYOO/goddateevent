@@ -97,6 +97,12 @@ export function DetailSheet({
         <dd className="num">{p.phone ? maskPhone(p.phone) : "-"}</dd>
         <dt>출석</dt>
         <dd className="num">{p.att ? `${hm(p.att.at)} · 태블릿 ${p.att.device}` : "미출석"}</dd>
+        {p.memo && (
+          <>
+            <dt>메모</dt>
+            <dd>{[...p.memo.codes.map((c) => c.label), ...(p.memo.text ? [p.memo.text] : [])].join(" · ")}</dd>
+          </>
+        )}
       </dl>
       <div className="carbox">
         {p.cars.length ? (

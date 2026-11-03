@@ -9,6 +9,7 @@
  */
 
 import type * as checkin from "../checkin.js";
+import type * as codes from "../codes.js";
 import type * as events from "../events.js";
 import type * as groupings from "../groupings.js";
 import type * as lib_auth from "../lib/auth.js";
@@ -27,6 +28,7 @@ import type {
 
 declare const fullApi: ApiFromModules<{
   checkin: typeof checkin;
+  codes: typeof codes;
   events: typeof events;
   groupings: typeof groupings;
   "lib/auth": typeof lib_auth;

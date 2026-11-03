@@ -76,4 +76,32 @@ export default defineSchema({
     device: v.string(),
     at: v.number(),
   }).index("by_session", ["sessionId"]),
+
+  // 공통코드 그룹 (예: CHECK_MEMO 출석 메모). key로 화면에서 찾는다
+  codeGroups: defineTable({
+    key: v.string(),
+    name: v.string(),
+    description: v.optional(v.string()),
+  }).index("by_key", ["key"]),
+
+  // 공통코드. order 순으로 보여 주고, active=false면 새로 고를 때 숨긴다
+  codes: defineTable({
+    groupId: v.id("codeGroups"),
+    label: v.string(),
+    order: v.number(),
+    active: v.boolean(),
+  }).index("by_group_order", ["groupId", "order"]),
+
+  // 회차별 출석 메모 (공통코드 선택 + 짧은 글). 출석과 별개라 미출석자도 남길 수 있다
+  checkMemos: defineTable({
+    sessionId: v.id("sessions"),
+    memberId: v.id("members"),
+    codeIds: v.array(v.id("codes")),
+    text: v.optional(v.string()),
+    device: v.string(),
+    updatedAt: v.number(),
+  })
+    .index("by_session", ["sessionId"])
+    .index("by_session_member", ["sessionId", "memberId"])
+    .index("by_member", ["memberId"]),
 });

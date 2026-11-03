@@ -9,6 +9,7 @@ import { G_OPTIONS, Hl, Loading, SearchBox, Seg, Stat, countNames, type GFilter 
 import { NeedsSetup, SessBar, useEvent } from "@/components/events/event-context";
 import { DetailSheet } from "@/components/check/detail-sheet";
 import { WalkIn } from "@/components/check/walk-in";
+import { MemoSheet } from "@/components/check/memo-sheet";
 import type { Person } from "@/components/check/types";
 import { koCompare, matchAt, stripCho } from "@/lib/hangul";
 import { hm } from "@/lib/date";
@@ -38,6 +39,7 @@ function CheckBoard({ sessionId }: { sessionId: Id<"sessions"> }) {
   const [onlyNoCar, setOnlyNoCar] = useState(false);
   const [detail, setDetail] = useState<Id<"members"> | null>(null);
   const [walkIn, setWalkIn] = useState(false);
+  const [memoFor, setMemoFor] = useState<Id<"members"> | null>(null);
   // 서버 반영 전에도 카드가 바로 바뀌도록 (낙관적 표시)
   const [pending, setPending] = useState<Map<Id<"members">, number>>(new Map());
   const searchRef = useRef<HTMLInputElement>(null);
@@ -147,6 +149,7 @@ function CheckBoard({ sessionId }: { sessionId: Id<"sessions"> }) {
     .sort((a, b) => plateTail(a.plate).localeCompare(plateTail(b.plate)));
 
   const detailPerson = detail ? people.find((p) => p.memberId === detail) : undefined;
+  const memoPerson = memoFor ? people.find((p) => p.memberId === memoFor) : undefined;
 
   return (
     <>
@@ -199,13 +202,8 @@ function CheckBoard({ sessionId }: { sessionId: Id<"sessions"> }) {
                     const on = isOn(p);
                     const at = p.att?.at ?? pending.get(p.memberId);
                     return (
-                      <button
-                        key={p.memberId}
-                        type="button"
-                        className={`card ${p.gender} ${on ? "on" : ""}`}
-                        aria-pressed={on}
-                        onClick={() => tapCard(p)}
-                      >
+                      <div key={p.memberId} className={`card ${p.gender} ${on ? "on" : ""}`}>
+                      <button type="button" className="cbody" aria-pressed={on} onClick={() => tapCard(p)}>
                         <span className="g" />
                         <span className="name">
                           <Hl text={p.name} q={/^\d+$/.test(qn) ? "" : qn} />
@@ -221,6 +219,21 @@ function CheckBoard({ sessionId }: { sessionId: Id<"sessions"> }) {
                           <span className="st">{on && at ? `출석 ${hm(at)}` : "미출석"}</span>
                         </span>
                       </button>
+                      <button type="button" className={`cmemo ${p.memo ? "has" : ""}`} aria-label={`${p.name} 메모`} onClick={() => setMemoFor(p.memberId)}>
+                        {p.memo ? (
+                          <>
+                            {p.memo.codes.map((c) => (
+                              <span key={c._id} className="tag">
+                                {c.label}
+                              </span>
+                            ))}
+                            {p.memo.text && <span className="txt">{p.memo.text}</span>}
+                          </>
+                        ) : (
+                          <span className="add">+ 메모</span>
+                        )}
+                      </button>
+                      </div>
                     );
                   })
                 ) : (
@@ -234,7 +247,8 @@ function CheckBoard({ sessionId }: { sessionId: Id<"sessions"> }) {
                 )}
               </div>
               <p className="hint" style={{ margin: 0 }}>
-                카드를 누르면 바로 {s.no}회차 출석 처리됩니다. 출석한 카드를 다시 누르면 차량 체크나 출석 취소를 할 수 있어요.
+                카드를 누르면 바로 {s.no}회차 출석 처리됩니다. 출석한 카드를 다시 누르면 차량 체크나 출석 취소를 할 수 있어요. 카드 아래 메모 칸을 누르면
+                출석 없이 메모만 남겨요.
               </p>
             </>
           ) : (
@@ -321,6 +335,9 @@ function CheckBoard({ sessionId }: { sessionId: Id<"sessions"> }) {
 
       {detailPerson && (
         <DetailSheet person={detailPerson} sessionId={sessionId} sessionNo={s.no} device={dev} allPeople={people} onClose={() => setDetail(null)} />
+      )}
+      {memoPerson && (
+        <MemoSheet key={memoPerson.memberId} person={memoPerson} sessionId={sessionId} sessionNo={s.no} device={dev} onClose={() => setMemoFor(null)} />
       )}
       {walkIn && (
         <WalkIn

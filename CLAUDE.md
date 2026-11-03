@@ -171,15 +171,37 @@ export default defineSchema({
     device: v.string(),
     at: v.number(),
   }).index("by_session", ["sessionId"]),
+
+  // 공통코드 그룹. 화면은 key로 찾는다 (기본 그룹: CHECK_MEMO 출석 메모, lib/codes.ts SYSTEM_GROUPS)
+  codeGroups: defineTable({ key: v.string(), name: v.string(), description: v.optional(v.string()) })
+    .index("by_key", ["key"]),
+
+  // 공통코드. order 순, active=false면 새로 고를 때 숨김
+  codes: defineTable({ groupId: v.id("codeGroups"), label: v.string(), order: v.number(), active: v.boolean() })
+    .index("by_group_order", ["groupId", "order"]),
+
+  // 회차별 출석 메모 (코드 선택 + 짧은 글). 출석과 별개
+  checkMemos: defineTable({
+    sessionId: v.id("sessions"),
+    memberId: v.id("members"),
+    codeIds: v.array(v.id("codes")),
+    text: v.optional(v.string()),
+    device: v.string(),
+    updatedAt: v.number(),
+  })
+    .index("by_session", ["sessionId"])
+    .index("by_session_member", ["sessionId", "memberId"])
+    .index("by_member", ["memberId"]),
 });
 ```
 
 등록일은 Convex 기본 필드 `_creationTime`을 사용한다.
 
 ### 삭제 규칙 (cascade)
-- 회원 삭제 → participants, groupings.assignments, attendance, carChecks, checkLogs에서 해당 회원 제거.
+- 회원 삭제 → participants, groupings.assignments, attendance, carChecks, checkLogs, checkMemos에서 해당 회원 제거.
 - 행사 삭제 → 하위 sessions, participants, 각 회차의 groupings/attendance/carChecks/checkLogs 삭제.
-- 회차 삭제 → 해당 회차의 groupings/attendance/carChecks/checkLogs 삭제.
+- 회차 삭제 → 해당 회차의 groupings/attendance/carChecks/checkLogs/checkMemos 삭제.
+- 코드 삭제 → checkMemos.codeIds에서 제거(남은 내용 없으면 메모 삭제). 그룹 삭제 → 하위 코드도 같은 방식. 기본 그룹(SYSTEM_GROUPS)은 삭제·키 변경 불가.
 - 참여자 제외 → participants 삭제 + 해당 행사 모든 회차 groupings에서 제거. 출석 기록은 남긴다(명단·통계에서는 참여자만 집계).
 - 삭제는 모두 화면 안에서 확인 단계를 거친다 (`window.confirm` 사용 금지, 다이얼로그/인라인 확인).
 
@@ -191,8 +213,10 @@ convex/events.ts        list(회차 수·참여 남녀 수·다음 회차 포함
 convex/sessions.ts      listByEvent(번호 계산 포함), create, updateDate, remove
 convex/participants.ts  listByEvent(member 조인), addMany, remove
 convex/groupings.ts     getBySession, listPriorBySession(같은 행사의 이전 회차들), save(groupCount, assignments)
-convex/checkin.ts       boardBySession(참여자+출석+차량+조번호+로그 한 번에), checkIn, cancelCheckIn,
-                        carIn, carOut, registerPlateAndCarIn, walkIn
+convex/checkin.ts       boardBySession(참여자+출석+차량+조번호+메모+로그 한 번에), checkIn, cancelCheckIn,
+                        carIn, carOut, registerPlateAndCarIn, walkIn, setMemo
+convex/codes.ts         listGroups, listCodes, byKey, ensureSystemGroups, createGroup, updateGroup, removeGroup,
+                        createCode, updateCode, moveCode, removeCode
 convex/stats.ts         byEvent(eventId), byMember()
 convex/seed.ts          개발용 예시 데이터 (internalMutation, 운영에서 실행 금지)
 ```
@@ -220,7 +244,7 @@ convex/seed.ts          개발용 예시 데이터 (internalMutation, 운영에�
 
 공통: 한국어 UI, **태블릿 가로(1024~1366px) 우선**, 폰 폭(390px)에서도 가로 스크롤 없음. 터치 영역 최소 44px. 라이트/다크 모두 지원.
 색 토큰(프로토타입 기준): 배경 `#F3F5F4`, 강조 `#2E5E4E`, 형제 `#2F63A3`, 자매 `#B03F66`, 정상 `#1F7A4D`, 경고 `#A86A12`. 폰트 IBM Plex Sans KR / 제목 Gowun Batang / 숫자 IBM Plex Mono.
-상단 앱 바: 로고 "갓데이트 출석부" · 회원관리 · 행사관리 · 통계 · 로그아웃.
+상단 앱 바: 로고 "갓데이트 출석부" · 회원관리 · 행사관리 · 통계 · 공통코드 · 로그아웃.
 
 ### 7.1 `/members` 회원관리
 - 요약: 전체 / 형제 / 자매 / 차량 등록 수.
@@ -270,13 +294,19 @@ convex/seed.ts          개발용 예시 데이터 (internalMutation, 운영에�
     - 등록 차량 없음: **두 칸 입력 `[19저] [2074]`** → "차량 등록하고 도착 체크" (회원 차량에도 저장).
     - 출석 취소(시트 안에서 확인).
   - 현장 등록: 이름*, 성별*, 휴대폰(선택), 차량(두 칸, 선택) → 회원 생성 + 참여자 추가 + 출석(+차량 도착).
+  - **출석 메모**: 카드 아래 메모 칸(카드 본문과 별도 버튼, 출석 처리 안 함) → 메모 창에서 `CHECK_MEMO` 그룹 코드를 여러 개 선택 + 덧붙일 말(선택, 200자). 둘 다 비우고 저장하면 메모 삭제. 카드 메모 칸·출석 상세에 표시.
 - **차량 모드**: 참여자 차량 카드(큰 번호판), 뒷 4자리 검색(일치 부분 강조), "미도착만", 탭으로 도착/취소, 소유자 출석 여부 표시.
 - 우측: 이 회차 최근 체크 로그(시각, 이름, 출석/출석 취소/차량 도착/차량 취소, 기기 A/B).
 - 명찰·책자 지급 체크는 **하지 않는다** (요구사항에서 제외됨).
 - Convex 실시간 구독으로 태블릿 A·B 화면이 즉시 같아야 한다.
 
+### 7.5 `/codes` 공통코드
+- 왼쪽: 그룹 목록(이름, 키, 코드 수, 기본 그룹 배지), "+ 그룹 추가"(이름*, 키*(영문 대문자·숫자·_), 설명). 기본 그룹이 없으면 "기본 코드와 함께 만들기".
+- 오른쪽: 선택 그룹 정보 수정/삭제(인라인 확인), 코드 추가, 코드별 ▲▼ 순서, 수정, 사용 안 함/다시 사용, 삭제(메모 사용 건수 안내).
+- 새 화면에서 코드가 필요하면 `lib/codes.ts`의 SYSTEM_GROUPS에 그룹을 추가하고 `codes.byKey`로 읽는다.
+
 ### 7.4 `/stats` 통계
-- 탭: **행사별** / **회원 누적**.
+- 탭: **행사별** / **차량 내역**(행사·회차를 골라 도착 체크된 차량번호·운전자만) / **회원 누적**.
 - 행사별(행사 선택): 요약(진행한 회차 n/N, 평균 출석률, 형제·자매 출석률, 회차당 차량 평균) → 회차별 출석 표(형제 n/N, 자매 n/N, 전체 출석률 막대, 차량 대수, 예정 회차는 "예정") → 참여자별 출석 표(명찰, 회차별 ✓/✕/·, 출석 n/진행 회차, 출석률). 정렬: 이름순 / 출석률 낮은 순.
 - 회원 누적: 회원별 참여 행사마다 회차별 ✓/✕, 누적 출석 a/t, 출석률. 정렬: 이름순 / 참여 많은 순 / 출석률 낮은 순. 성별 필터·초성 검색.
 - 출석률은 **오늘까지 진행된 회차만** 분모에 넣는다.
@@ -325,9 +355,10 @@ app/
   (admin)/events/[eventId]/groups/page.tsx
   (admin)/events/[eventId]/check/page.tsx
   (admin)/stats/page.tsx
+  (admin)/codes/page.tsx        공통코드
 components/ (members/, events/, groups/, check/, stats/, ui/ ← shadcn)
-convex/ (schema.ts, lib/auth.ts, members.ts, events.ts, sessions.ts, participants.ts, groupings.ts, checkin.ts, stats.ts, seed.ts)
-lib/ (hangul.ts, plate.ts, phone.ts, grouping.ts, hungarian.ts, date.ts, token.ts, import.ts, errors.ts, logic.test.ts)
+convex/ (schema.ts, lib/auth.ts, members.ts, events.ts, sessions.ts, participants.ts, groupings.ts, checkin.ts, codes.ts, stats.ts, seed.ts)
+lib/ (codes.ts, hangul.ts, plate.ts, phone.ts, grouping.ts, hungarian.ts, date.ts, token.ts, import.ts, errors.ts, logic.test.ts)
 proxy.ts
 docs/prototype.html             UI 기준 프로토타입 (수정하지 않음)
 ```

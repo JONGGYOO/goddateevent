@@ -5,6 +5,7 @@ import { internalAction, internalMutation, internalQuery } from "./_generated/se
 import { gender, logKind } from "./schema";
 import { MAX_ROWS } from "./lib/data";
 import { todaySeoul } from "../lib/date";
+import { SYSTEM_GROUPS } from "../lib/codes";
 import { buildMet, defaultGroupCount, solveGroups, type PriorGrouping } from "../lib/grouping";
 
 /**
@@ -17,7 +18,7 @@ const FN = ["김지은", "이은혜", "박소망", "최하은", "정예린", "�
 const CH = ["은혜교회", "새소망교회", "빛과소금교회", "주님의교회", "한빛교회", "생명샘교회", "새생명교회", ""];
 const CARS = ["12가 3456", "45나 7812", "123다 4567", "67라 9021", "301마 2244", "88바 1357", "27사 8640", "19아 5072", "154자 3318", "62하 7790", "33허 2048", "210거 6601", "71너 9135", "56더 4482", "142러 1209", "90머 7356", "38버 2913", "245서 5508", "14어 8174", "77저 3662", "109고 4920", "52노 1846", "81도 6235", "166로 9472", "23모 3015", "44보 7781", "199소 2369", "68오 5154", "31구 8806"];
 
-const TABLES = ["checkLogs", "carChecks", "attendance", "groupings", "participants", "sessions", "events", "members"] as const;
+const TABLES = ["checkMemos", "codes", "codeGroups", "checkLogs", "carChecks", "attendance", "groupings", "participants", "sessions", "events", "members"] as const;
 
 export const hasData = internalQuery({
   args: {},
@@ -28,6 +29,17 @@ export const clearAll = internalMutation({
   args: {},
   handler: async (ctx) => {
     for (const t of TABLES) for (const d of await ctx.db.query(t).take(MAX_ROWS)) await ctx.db.delete(t, d._id);
+    return null;
+  },
+});
+
+export const insertCodes = internalMutation({
+  args: {},
+  handler: async (ctx) => {
+    for (const g of SYSTEM_GROUPS) {
+      const id = await ctx.db.insert("codeGroups", { key: g.key, name: g.name, description: g.description });
+      for (const [i, label] of g.codes.entries()) await ctx.db.insert("codes", { groupId: id, label, order: i + 1, active: true });
+    }
     return null;
   },
 });
@@ -91,6 +103,7 @@ export const run = internalAction({
       throw new ConvexError('이미 데이터가 있어요. 지우고 다시 넣으려면 {"reset":true}로 실행하세요.');
     }
     await ctx.runMutation(internal.seed.clearAll, {});
+    await ctx.runMutation(internal.seed.insertCodes, {});
 
     let r = 11;
     const rnd = () => (r = (r * 9301 + 49297) % 233280) / 233280;

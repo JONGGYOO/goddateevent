@@ -43,7 +43,7 @@ export const update = adminMutation({
   },
 });
 
-/** 회원 삭제: 참여·조 편성·출석·차량·로그에서 모두 제거 */
+/** 회원 삭제: 참여·조 편성·출석·차량·로그·출석 메모에서 모두 제거 */
 export const remove = adminMutation({
   args: { id: v.id("members") },
   handler: async (ctx, { id }) => {
@@ -88,6 +88,11 @@ export const remove = adminMutation({
         .take(MAX_ROWS);
       for (const l of logs) if (l.memberId === id) await ctx.db.delete("checkLogs", l._id);
     }
+    const memos = await ctx.db
+      .query("checkMemos")
+      .withIndex("by_member", (q) => q.eq("memberId", id))
+      .take(MAX_ROWS);
+    for (const m of memos) await ctx.db.delete("checkMemos", m._id);
     await ctx.db.delete("members", id);
     return null;
   },

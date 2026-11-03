@@ -47,6 +47,12 @@ export const carChecksOf = (ctx: Ctx, sessionId: Id<"sessions">) =>
     .withIndex("by_session", (q) => q.eq("sessionId", sessionId))
     .take(MAX_ROWS);
 
+export const memosOf = (ctx: Ctx, sessionId: Id<"sessions">) =>
+  ctx.db
+    .query("checkMemos")
+    .withIndex("by_session", (q) => q.eq("sessionId", sessionId))
+    .take(MAX_ROWS);
+
 export const groupingOf = (ctx: Ctx, sessionId: Id<"sessions">) =>
   ctx.db
     .query("groupings")
@@ -139,6 +145,7 @@ export async function deleteSessionCascade(ctx: MutationCtx, sessionId: Id<"sess
     .withIndex("by_session", (q) => q.eq("sessionId", sessionId))
     .take(MAX_ROWS);
   for (const l of logs) await ctx.db.delete("checkLogs", l._id);
+  for (const m of await memosOf(ctx, sessionId)) await ctx.db.delete("checkMemos", m._id);
   await ctx.db.delete("sessions", sessionId);
 }
 

@@ -13,16 +13,18 @@ import {
   findCarOwner,
   getOrThrow,
   groupingOf,
+  memosOf,
   nextNameTag,
   participantsOf,
   sessionsOf,
 } from "./lib/data";
 import { normalizePhone } from "../lib/phone";
 import { normalizePlate, MSG_FRONT } from "../lib/plate";
+import { MAX_MEMO_TEXT } from "../lib/codes";
 
 const device = v.union(v.literal("A"), v.literal("B"));
 
-/** 출석 화면 한 번에: 참여자 + 출석 + 차량 + 조 번호 + 최근 로그 */
+/** 출석 화면 한 번에: 참여자 + 출석 + 차량 + 조 번호 + 출석 메모 + 최근 로그 */
 export const boardBySession = adminQuery({
   args: { sessionId: v.id("sessions") },
   handler: async (ctx, { sessionId }) => {
@@ -32,6 +34,12 @@ export const boardBySession = adminQuery({
     const no = ss.find((s) => s._id === sessionId)?.no ?? 0;
     const att = new Map((await attendanceOf(ctx, sessionId)).map((a) => [a.memberId, a]));
     const cars = new Map((await carChecksOf(ctx, sessionId)).map((c) => [c.memberId, c]));
+    const memos = new Map((await memosOf(ctx, sessionId)).map((m) => [m.memberId, m]));
+    const labels = new Map<Id<"codes">, string | null>();
+    const labelOf = async (id: Id<"codes">) => {
+      if (!labels.has(id)) labels.set(id, (await ctx.db.get("codes", id))?.label ?? null);
+      return labels.get(id) ?? null;
+    };
     const g = await groupingOf(ctx, sessionId);
     const groupOf = new Map<Id<"members">, number>();
     if (g) for (const a of g.assignments) if (a.group < g.groupCount) groupOf.set(a.memberId, a.group + 1);
@@ -44,6 +52,16 @@ export const boardBySession = adminQuery({
       names.set(m._id, { name: m.name, gender: m.gender });
       const a = att.get(m._id);
       const c = cars.get(m._id);
+      const mm = memos.get(m._id);
+      let memo = null;
+      if (mm) {
+        const codes = [];
+        for (const id of mm.codeIds) {
+          const label = await labelOf(id);
+          if (label) codes.push({ _id: id, label });
+        }
+        memo = { codes, text: mm.text ?? null, device: mm.device, at: mm.updatedAt };
+      }
       people.push({
         memberId: m._id,
         name: m.name,
@@ -54,6 +72,7 @@ export const boardBySession = adminQuery({
         group: groupOf.get(m._id) ?? null,
         att: a ? { at: a.checkedAt, device: a.device } : null,
         car: c ? { plate: c.plate, at: c.checkedAt, device: c.device } : null,
+        memo,
       });
     }
 
@@ -204,6 +223,38 @@ export const registerPlateAndCarIn = adminMutation({
     if (!member.cars.includes(p)) await ctx.db.patch("members", memberId, { cars: [...member.cars, p] });
     const at = await doCarIn(ctx, sessionId, memberId, p, device);
     return { plate: p, at };
+  },
+});
+
+/** 출석 메모 저장: 공통코드(CHECK_MEMO 등) 선택 + 짧은 글. 둘 다 비우면 메모를 지운다 */
+export const setMemo = adminMutation({
+  args: {
+    sessionId: v.id("sessions"),
+    memberId: v.id("members"),
+    codeIds: v.array(v.id("codes")),
+    text: v.optional(v.string()),
+    device,
+  },
+  handler: async (ctx, { sessionId, memberId, codeIds, text, device }) => {
+    await requireParticipant(ctx, sessionId, memberId);
+    const ids = [...new Set(codeIds)];
+    for (const id of ids) {
+      if (!(await ctx.db.get("codes", id))) throw new ConvexError("지워진 코드가 있어요. 메모 창을 닫고 다시 열어 주세요.");
+    }
+    const t = (text ?? "").trim();
+    if (t.length > MAX_MEMO_TEXT) fieldError("text", `메모는 ${MAX_MEMO_TEXT}자까지 쓸 수 있어요.`);
+    const ex = await ctx.db
+      .query("checkMemos")
+      .withIndex("by_session_member", (q) => q.eq("sessionId", sessionId).eq("memberId", memberId))
+      .first();
+    if (!ids.length && !t) {
+      if (ex) await ctx.db.delete("checkMemos", ex._id);
+      return null;
+    }
+    const doc = { sessionId, memberId, codeIds: ids, text: t || undefined, device, updatedAt: Date.now() };
+    if (ex) await ctx.db.replace("checkMemos", ex._id, doc);
+    else await ctx.db.insert("checkMemos", doc);
+    return null;
   },
 });
 
