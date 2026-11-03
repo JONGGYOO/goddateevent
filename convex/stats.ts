@@ -17,13 +17,15 @@ export const byEvent = adminQuery({
       const m = await ctx.db.get("members", p.memberId);
       if (!m) continue;
       ids.add(m._id);
-      people.push({ memberId: m._id, name: m.name, gender: m.gender, nameTagNo: p.nameTagNo });
+      people.push({ memberId: m._id, name: m.name, gender: m.gender, nameTagNo: p.nameTagNo, cars: m.cars });
     }
     const sessions = [];
     for (const s of await sessionsOf(ctx, eventId)) {
       const att = (await attendanceOf(ctx, s._id)).filter((a) => ids.has(a.memberId)).map((a) => a.memberId);
-      const cars = (await carChecksOf(ctx, s._id)).filter((c) => ids.has(c.memberId)).length;
-      sessions.push({ _id: s._id, no: s.no, date: s.date, attended: att, cars });
+      const carChecks = (await carChecksOf(ctx, s._id))
+        .filter((c) => ids.has(c.memberId))
+        .map((c) => ({ memberId: c.memberId, plate: c.plate, at: c.checkedAt, device: c.device }));
+      sessions.push({ _id: s._id, no: s.no, date: s.date, attended: att, cars: carChecks.length, carChecks });
     }
     return { event: { _id: event._id, no: event.no, name: event.name }, people, sessions };
   },
