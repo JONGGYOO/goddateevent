@@ -120,7 +120,8 @@ export const setLocked = adminMutation({
   },
 });
 
-/** 조 종류 추가: 글자로 적은 종류를 공통코드(GROUP_KIND)에서 찾거나 만들고, 이 회차에 빈 편성을 만든다 */
+/** 조 종류 추가: 글자로 적은 종류를 공통코드(GROUP_KIND)에서 찾거나 만들고,
+ *  이 회차 기본 조 배정(출석자만)을 복사한 편성으로 시작한다. 기본 조가 없으면 빈 편성 */
 export const addKind = adminMutation({
   args: { sessionId: v.id("sessions"), label: v.string() },
   handler: async (ctx, { sessionId, label }) => {
@@ -129,8 +130,11 @@ export const addKind = adminMutation({
     if (await groupingOf(ctx, sessionId, code._id)) throw new ConvexError(`이 회차에는 이미 ‘${code.label}’이 있어요.`);
     const base = await groupingOf(ctx, sessionId);
     const n = (await participantsOf(ctx, session.eventId)).length;
-    await ctx.db.insert("groupings", { sessionId, kindId: code._id, groupCount: base?.groupCount ?? defaultGroupCount(n), assignments: [] });
-    return code;
+    const allowed = await targetIds(ctx, session, code._id);
+    const groupCount = base?.groupCount ?? defaultGroupCount(n);
+    const assignments = (base?.assignments ?? []).filter((a) => allowed.has(a.memberId) && a.group < groupCount);
+    await ctx.db.insert("groupings", { sessionId, kindId: code._id, groupCount, assignments });
+    return { ...code, copied: assignments.length, fromBase: !!base };
   },
 });
 

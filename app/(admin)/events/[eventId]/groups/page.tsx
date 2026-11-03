@@ -116,6 +116,7 @@ function GroupsBoard({
   const gm = groupsOf(assign, ids, k);
   const score = scoreGrouping(people, k, assign, met);
   const prev = data.prior.filter((p) => p.same).at(-1);
+  const sameBase = data.prior.find((p) => !p.same);
 
   /** 변경 즉시 저장 (자동 저장). 저장이 끝나기 전에는 화면에 바로 보이도록 local로 유지 */
   const commit = async (next: Draft) => {
@@ -260,6 +261,21 @@ function GroupsBoard({
                   }}
                 >
                   {prev.label} 불러오기
+                </button>
+              )}
+              {sameBase && (
+                <button
+                  className="btn ghost"
+                  type="button"
+                  onClick={() => {
+                    commit({
+                      k: sameBase.groupCount,
+                      assign: Object.fromEntries(sameBase.assignments.map((a) => [a.memberId, a.group])),
+                    });
+                    toast("기본 조 배정을 다시 가져왔어요");
+                  }}
+                >
+                  기본 조 불러오기
                 </button>
               )}
               <button
@@ -591,7 +607,11 @@ function KindBar({
     setErr("");
     try {
       const r = await addKind({ sessionId, label: text });
-      toast(`‘${r.label}’을 추가했어요. 대상은 이 회차 출석자예요.`);
+      toast(
+        r.fromBase
+          ? `‘${r.label}’을 추가했어요. 기본 조 배정(출석자 ${r.copied}명)을 가져왔으니 바꿔서 쓰세요.`
+          : `‘${r.label}’을 추가했어요. 기본 조가 없어 빈 편성으로 시작해요.`,
+      );
       setLabel("");
       setAdding(false);
       onPick(r._id);
@@ -710,7 +730,8 @@ function KindInfo({
       ) : (
         <>
           <p>
-            {kind.label} 대상: 이 회차 출석자 {attended}명 (참여자 {total}명 중). 출석체크를 하면 미배정에 바로 들어와요.
+            {kind.label} 대상: 이 회차 출석자 {attended}명 (참여자 {total}명 중). 처음엔 기본 조 배정을 가져와요. 나중에 출석한 사람은
+            미배정에 들어오니 ‘기본 조 불러오기’로 다시 맞추거나 직접 넣으세요.
           </p>
           {!kind.locked && (
             <button className="btn ghost sm" type="button" onClick={() => setConfirm(true)}>
