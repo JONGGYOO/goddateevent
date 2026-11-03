@@ -29,6 +29,12 @@ const HINT: Record<GroupMode, string> = {
   fixF: "여자는 지금 조에 그대로 두고 남자만 다시 섞습니다. 비어 있으면 ‘이전 회차 불러오기’로 시작하세요.",
 };
 
+const KIND_HINT: Record<GroupMode, string> = {
+  all: "출석자만 다시 섞고, 조마다 남녀 수가 최대한 같게 들어갑니다. 불러온 미출석자는 빠져요.",
+  fixM: "남자는 지금 조에 두고, 출석한 여자만 조별 남자 수에 맞춰 다시 섞습니다.",
+  fixF: "여자는 지금 조에 두고, 출석한 남자만 조별 여자 수에 맞춰 다시 섞습니다.",
+};
+
 type Draft = { k: number; assign: Assign };
 type Sheet = { kind: "person"; id: string } | { kind: "add"; gi: number; g: G } | null;
 
@@ -70,6 +76,7 @@ function GroupsBoard({
         id: p.memberId as string,
         gender: p.gender,
         name: p.name,
+        attended: p.attended,
       })),
     [data],
   );
@@ -170,7 +177,9 @@ function GroupsBoard({
         return;
       }
     }
-    const next = solveGroups({ people, k, met, mode, base: assign, avoid });
+    // 추가 조 종류: 출석자만 섞고, 조마다 남녀 수를 최대한 같게. 불러온 미출석자는 빠진다
+    const pool = data.kind ? people.filter((p) => p.attended) : people;
+    const next = solveGroups({ people: pool, k, met, mode, base: assign, avoid, balance: data.kind ? "ratio" : "size" });
     commit({ k, assign: next });
     const mf = mixedMetPairs(next);
     toast(!avoid ? "랜덤으로 배정했어요" : mf ? `최대한 피했지만 남녀 재회 ${mf}쌍이 남았어요` : "전에 만난 이성과 겹치지 않게 배정했어요");
@@ -200,7 +209,7 @@ function GroupsBoard({
       <SessBar />
       <KindBar sessionId={sessionId} cur={kindId} kinds={data.kinds} onPick={setKindId} />
       {data.kind && (
-        <KindInfo sessionId={sessionId} kind={data.kind} attended={ids.length} total={data.participantCount} onRemoved={() => setKindId(null)} />
+        <KindInfo sessionId={sessionId} kind={data.kind} attended={people.filter((p) => p.attended).length} total={data.participantCount} onRemoved={() => setKindId(null)} />
       )}
       {locked && (
         <div className="notice lockbar">
@@ -272,7 +281,7 @@ function GroupsBoard({
                       k: sameBase.groupCount,
                       assign: Object.fromEntries(sameBase.assignments.map((a) => [a.memberId, a.group])),
                     });
-                    toast("기본 조 배정을 다시 가져왔어요");
+                    toast("기본 조를 그대로 가져왔어요 (미출석자 포함)");
                   }}
                 >
                   기본 조 불러오기
@@ -303,7 +312,7 @@ function GroupsBoard({
           )}
         </div>
         <p className="modehint">
-          {HINT[mode]}{" "}
+          {data.kind ? KIND_HINT[mode] : HINT[mode]}{" "}
           {data.prior.length
             ? `겹침 비교 대상: ${data.prior.map((x) => x.label).join(", ")}.`
             : "비교할 이전 편성이 없어 첫 편성입니다."}
@@ -363,7 +372,7 @@ function GroupsBoard({
                           <button
                             key={id}
                             type="button"
-                            className={`chip ${g} ${metIds.has(id) ? "met" : ""} ${fixG === g ? "pinned" : ""}`}
+                            className={`chip ${g} ${metIds.has(id) ? "met" : ""} ${fixG === g ? "pinned" : ""} ${byId.get(id)?.attended ? "" : "absent"}`}
                             aria-disabled={locked}
                             onClick={() => open({ kind: "person", id })}
                           >
@@ -409,7 +418,9 @@ function GroupsBoard({
           </>
         ) : (
           <h2>
-            미배정 없음 · {data.kind ? "출석자" : "참여자"} {ids.length}명 모두 배정됨
+            미배정 없음 · {data.kind ? "" : "참여자 "}
+            {ids.length}명 모두 배정됨
+            {data.kind && people.some((p) => !p.attended) ? ` (미출석 ${people.filter((p) => !p.attended).length}명 포함)` : ""}
           </h2>
         )}
       </section>
@@ -730,8 +741,8 @@ function KindInfo({
       ) : (
         <>
           <p>
-            {kind.label} 대상: 이 회차 출석자 {attended}명 (참여자 {total}명 중). 처음엔 기본 조 배정을 가져와요. 나중에 출석한 사람은
-            미배정에 들어오니 ‘기본 조 불러오기’로 다시 맞추거나 직접 넣으세요.
+            {kind.label} 대상: 이 회차 출석자 {attended}명 (참여자 {total}명 중). 추가할 때는 기본 조에서 출석자만 가져와요. ‘기본 조
+            불러오기’는 기본 조를 그대로(미출석자 포함) 가져오고, ‘랜덤 배정’은 출석자만 남녀 수를 맞춰 섞어요.
           </p>
           {!kind.locked && (
             <button className="btn ghost sm" type="button" onClick={() => setConfirm(true)}>

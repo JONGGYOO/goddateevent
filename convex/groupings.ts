@@ -58,11 +58,17 @@ export const getBySession = adminQuery({
     // 추가 종류 화면의 "기본 조 불러오기"용: 같은 회차 기본 조
     const sessionBase = kindId ? all.find((g) => !g.kindId) : undefined;
 
+    // 화면 인원: 기본 조 = 참여자. 추가 종류 = 출석자 + (기본 조 불러오기 등으로) 이 편성에 들어 있는 참여자
     const ids = await targetIds(ctx, session, kindId);
+    const shown = new Set(ids);
+    if (kindId && grouping) {
+      const parts = await targetIds(ctx, session, undefined);
+      for (const a of grouping.assignments) if (parts.has(a.memberId)) shown.add(a.memberId);
+    }
     const people = [];
-    for (const id of ids) {
+    for (const id of shown) {
       const m = await ctx.db.get("members", id);
-      if (m) people.push({ memberId: m._id, name: m.name, gender: m.gender });
+      if (m) people.push({ memberId: m._id, name: m.name, gender: m.gender, attended: !kindId || ids.has(id) });
     }
     const participantCount = (await participantsOf(ctx, session.eventId)).length;
     return {
@@ -95,7 +101,8 @@ export const save = adminMutation({
     const existing = await groupingOf(ctx, sessionId, kindId);
     if (existing?.locked) throw new ConvexError(MSG_GROUPS_LOCKED);
     if (kindId && !existing) throw new ConvexError("이 회차에 없는 조 종류예요. 화면을 새로 고쳐 주세요.");
-    const allowed = await targetIds(ctx, session, kindId);
+    // 추가 종류도 저장은 참여자면 허용 (기본 조 불러오기는 미출석자까지 그대로 가져온다). 랜덤 대상은 화면에서 출석자로 제한
+    const allowed = await targetIds(ctx, session, undefined);
     const seen = new Set<string>();
     const clean = assignments.filter((a) => {
       if (!allowed.has(a.memberId) || seen.has(a.memberId)) return false;

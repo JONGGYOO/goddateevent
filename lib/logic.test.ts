@@ -182,3 +182,37 @@ describe("엑셀 붙여넣기", () => {
     expect(rows[1].errs).toContain("차량 중복");
   });
 });
+
+describe("추가 조 종류: 남녀 비율 맞추기 (balance=ratio)", () => {
+  const mk = (m: number, f: number): Person[] => [
+    ...Array.from({ length: m }, (_, i) => ({ id: `m${i}`, gender: "M" as const })),
+    ...Array.from({ length: f }, (_, i) => ({ id: `f${i}`, gender: "F" as const })),
+  ];
+  const diffs = (P: Person[], a: Record<string, number>, k: number) =>
+    groupsOf(a, P.map((p) => p.id), k).map((g) => {
+      const m = g.filter((id) => id.startsWith("m")).length;
+      return Math.abs(m - (g.length - m));
+    });
+
+  it("모두 랜덤: 22남 18녀 5조 → 조마다 남녀 차이 1 이하", () => {
+    const P = mk(22, 18);
+    for (const s of [1, 2, 3]) {
+      const a = solveGroups({ people: P, k: 5, met: new Map(), mode: "all", base: {}, avoid: true, balance: "ratio", rng: seeded(s) });
+      expect(Math.max(...diffs(P, a, 5))).toBeLessThanOrEqual(1);
+      expect(Object.keys(a).length).toBe(40);
+    }
+  });
+
+  it("남자 고정(치우친 배치)에서 여자를 남자 수에 맞춰 채움", () => {
+    const P = mk(20, 20);
+    const base: Record<string, number> = {};
+    // 남자: 1조 8, 2조 6, 3조 4, 4조 2
+    [8, 6, 4, 2].reduce((i, n, g) => {
+      for (let t = 0; t < n; t++) base[`m${i + t}`] = g;
+      return i + n;
+    }, 0);
+    const a = solveGroups({ people: P, k: 4, met: new Map(), mode: "fixM", base, avoid: false, balance: "ratio", rng: seeded(9) });
+    expect(diffs(P, a, 4)).toEqual([0, 0, 0, 0]);
+    for (const id of Object.keys(base)) expect(a[id]).toBe(base[id]);
+  });
+});

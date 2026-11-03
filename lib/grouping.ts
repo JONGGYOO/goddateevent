@@ -94,6 +94,8 @@ export type SolveInput = {
   mode: GroupMode;
   base: Assign;
   avoid: boolean;
+  /** size: 조 인원을 고르게(기본) · ratio: 조마다 남녀 수를 최대한 같게 (추가 조 종류) */
+  balance?: "size" | "ratio";
   rng?: Rng;
 };
 
@@ -102,8 +104,9 @@ export type SolveInput = {
  * - all: 남녀 모두 다시 배정
  * - fixM/fixF: 고정 성별은 현재 조 유지(미배정자는 그 성별이 적은 조부터), 나머지 성별만 재배정
  * - avoid: 이전 회차에 만난 쌍(이성 10, 동성 1 × 횟수)을 최소화
+ * - balance=ratio: 조마다 남녀 수 차이가 최소가 되게 정원을 잡는다 (인원이 많은 성별에 맞춰 다른 성별을 채움)
  */
-export function solveGroups({ people, k, met, mode, base, avoid, rng = Math.random }: SolveInput): Record<string, number> {
+export function solveGroups({ people, k, met, mode, base, avoid, balance = "size", rng = Math.random }: SolveInput): Record<string, number> {
   const G = new Map(people.map((p) => [p.id, p.gender]));
   const gen = (id: string) => G.get(id) as Gender;
   const ids = people.map((p) => p.id);
@@ -139,7 +142,34 @@ export function solveGroups({ people, k, met, mode, base, avoid, rng = Math.rand
 
   // 성별별 조 정원
   const slots = new Map<Gender, number[]>();
-  randG.forEach((g, gi) => {
+  /** ratio: 다른 성별 인원(other)과의 차이가 가장 큰 조부터 한 명씩 채운다 */
+  const matchTo = (n: number, other: number[]) => {
+    const sz = new Array<number>(k).fill(0);
+    for (let t = 0; t < n; t++) {
+      const order = shuffle([...Array(k).keys()], rng).sort((x, y) => other[y] - sz[y] - (other[x] - sz[x]) || sz[x] - sz[y]);
+      sz[order[0]]++;
+    }
+    return sz;
+  };
+  const countOf = (g: Gender) => ids.filter((id) => gen(id) === g).length;
+  if (balance === "ratio") {
+    if (fixG) {
+      const g = randG[0];
+      const other = new Array<number>(k).fill(0);
+      for (const id of ids) if (gen(id) === fixG && a[id] != null) other[a[id] as number]++;
+      slots.set(g, matchTo(countOf(g), other));
+    } else {
+      // 많은 성별을 고르게 나누고(여분은 무작위 조), 적은 성별을 거기에 맞춘다
+      const [big, small] = countOf("M") >= countOf("F") ? (["M", "F"] as const) : (["F", "M"] as const);
+      const n = countOf(big);
+      const sz = new Array<number>(k).fill(Math.floor(n / k));
+      shuffle([...Array(k).keys()], rng)
+        .slice(0, n % k)
+        .forEach((i) => sz[i]++);
+      slots.set(big, sz);
+      slots.set(small, matchTo(countOf(small), sz));
+    }
+  } else randG.forEach((g, gi) => {
     const n = ids.filter((id) => gen(id) === g).length;
     const per = Math.floor(n / k);
     const extra = n % k;
