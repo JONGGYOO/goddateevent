@@ -320,6 +320,13 @@
   .sess { border: 1.5px solid var(--line); background: var(--surface); border-radius: 999px; padding: 6px 14px; font-weight: 600; font-size: 14px; min-height: 40px; color: var(--sub); }
   .sess.done { color: var(--ink); }
   .sess[aria-current="true"] { background: var(--brand); border-color: var(--brand); color: var(--brand-ink); }
+  .sessbar .sesslbl { margin-right: 4px; }
+  /* 회차 칩: 위 "3회차", 아래 작게 "11.14" */
+  .sess.two { border-radius: 12px; padding: 4px 10px; min-width: 62px; min-height: 44px; display: inline-flex; flex-direction: column; align-items: center; justify-content: center; line-height: 1.15; }
+  .sess.two b { font-size: 13px; font-weight: 700; }
+  .sess.two small { font-size: 11px; font-weight: 500; font-family: var(--f-mono); opacity: 0.8; }
+  .sess.two small.today { font-family: inherit; font-weight: 700; color: var(--ok); opacity: 1; }
+  .sess.two[aria-current="true"] small.today { color: inherit; }
 
   /* 참여 인원 */
   /* 공통코드 */
@@ -548,6 +555,7 @@
     .pagehead > div:first-child { flex-basis: 100%; }
     .pagehead > .spacer { display: none; }
     .pagehead > .btn { flex: 1; }
+    .sessbar .sesslbl { display: none; }
     .tablewrap.compact th, .tablewrap.compact td { padding: 7px 8px; font-size: 14px; }
     .tablewrap.compact .rate .bar { display: none; }
     .tablewrap.compact .mk { width: 20px; height: 20px; font-size: 10px; }

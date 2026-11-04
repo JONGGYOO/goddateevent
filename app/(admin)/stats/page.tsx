@@ -8,7 +8,7 @@ import type { Id } from "@/convex/_generated/dataModel";
 import { useAQ, useToday } from "@/components/admin";
 import { G_OPTIONS, Hl, Loading, Meter, SearchBox, Seg, Stat, pct, type GFilter } from "@/components/kit";
 import type { FunctionReturnType } from "convex/server";
-import { fmtSession } from "@/lib/date";
+import { fmtMD, fmtSession } from "@/lib/date";
 import { koCompare, matchAt } from "@/lib/hangul";
 
 type Scope = "event" | "cars" | "all";
@@ -383,8 +383,16 @@ function SessionCars({
       <div className="controls">
         <div className="sessbar">
           {held.map((s) => (
-            <button key={s._id} type="button" className="sess done" aria-current={s._id === cur._id} onClick={() => setPicked(s._id)}>
-              {s.no}회차 · {fmtSession(s.date)}
+            <button
+              key={s._id}
+              type="button"
+              className="sess two done"
+              aria-current={s._id === cur._id}
+              title={`${s.no}회차 · ${fmtSession(s.date)}`}
+              onClick={() => setPicked(s._id)}
+            >
+              <b>{s.no}회차</b>
+              <small>{fmtMD(s.date)}</small>
             </button>
           ))}
         </div>

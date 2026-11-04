@@ -15,6 +15,12 @@ const parse = (ymd: string) => {
 };
 
 /** "2026-10-18" → "10.18(일)" */
+/** "11.14" (회차 칩 둘째 줄용, 요일 없음) */
+export function fmtMD(ymd: string): string {
+  const d = parse(ymd);
+  return `${d.getUTCMonth() + 1}.${d.getUTCDate()}`;
+}
+
 export function fmtSession(ymd: string): string {
   const d = parse(ymd);
   return `${d.getUTCMonth() + 1}.${d.getUTCDate()}(${WD[d.getUTCDay()]})`;

@@ -5,7 +5,7 @@ import { createContext, useContext } from "react";
 import type { FunctionReturnType } from "convex/server";
 import { api } from "@/convex/_generated/api";
 import type { Id } from "@/convex/_generated/dataModel";
-import { fmtSession } from "@/lib/date";
+import { fmtMD, fmtSession } from "@/lib/date";
 
 export type Overview = NonNullable<FunctionReturnType<typeof api.events.overview>>;
 export type SessionRow = Overview["sessions"][number];
@@ -38,19 +38,18 @@ export function SessBar() {
   const { overview, session, selectSession, today } = useEvent();
   return (
     <div className="sessbar">
-      <span className="hint" style={{ marginRight: 4 }}>
-        회차
-      </span>
+      <span className="hint sesslbl">회차</span>
       {overview.sessions.map((s) => (
         <button
           key={s._id}
           type="button"
-          className={`sess ${s.date < today ? "done" : ""}`}
+          className={`sess two ${s.date < today ? "done" : ""}`}
           aria-current={s._id === session?._id}
+          title={`${s.no}회차 · ${fmtSession(s.date)}`}
           onClick={() => selectSession(s._id)}
         >
-          {s.no}회차 · {fmtSession(s.date)}
-          {s.date === today ? " · 오늘" : ""}
+          <b>{s.no}회차</b>
+          <small className={s.date === today ? "today" : ""}>{s.date === today ? "오늘" : fmtMD(s.date)}</small>
         </button>
       ))}
     </div>
