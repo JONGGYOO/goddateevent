@@ -73,6 +73,33 @@ function EventShell({ children }: { children: ReactNode }) {
       : "회차 필요",
     check: session ? `${session.no}회차 ${session.attended}/${male + female}명` : "회차 필요",
   };
+  // 휴대폰: ①─②─③─④ 진행 표시 + 아래 요약 한 줄 (회차는 아래 회차 칩에 보이므로 뺀다)
+  const ok = <span className="ok">✓</span>;
+  const cur = TABS.findIndex(([t]) => t === tab);
+  const short: Record<(typeof TABS)[number][0], string> = { participants: "참여", sessions: "회차", groups: "조 편성", check: "출석" };
+  const mobileInfo: [string, ReactNode][] = [
+    [
+      "참여",
+      <>
+        <span className="M">남{male}</span>·<span className="F">여{female}</span>
+        {event.participantsLocked && <> {ok}</>}
+      </>,
+    ],
+    ["회차", `${sessions.length}개`],
+    [
+      "조",
+      session?.groupCount ? (
+        <>
+          {session.groupCount}개{session.groupLocked && <> {ok}</>}
+        </>
+      ) : session ? (
+        "미편성"
+      ) : (
+        "-"
+      ),
+    ],
+    ["출석", session ? `${session.attended}/${male + female}` : "-"],
+  ];
 
   return (
     <EventContext.Provider value={{ eventId, overview, today, session, selectSession, hrefFor }}>
@@ -87,14 +114,33 @@ function EventShell({ children }: { children: ReactNode }) {
         </div>
       </div>
       <nav className="steps" aria-label="행사 진행 단계">
-        {TABS.map(([t, n, label]) => (
-          <Link key={t} href={hrefFor(t)} className="step" aria-current={tab === t ? "page" : undefined}>
+        {TABS.map(([t, n, label], i) => (
+          <Link
+            key={t}
+            href={hrefFor(t)}
+            className={`step ${i < cur ? "done" : ""}`}
+            aria-label={`${n}단계 ${label} · ${summary[t]}`}
+            aria-current={tab === t ? "page" : undefined}
+          >
             <span className="s1">{n}단계</span>
             <span className="s2">{label}</span>
             <span className="s3">{summary[t]}</span>
+            <span className="num" aria-hidden>
+              {n}
+            </span>
+            <span className="lab" aria-hidden>
+              {short[t]}
+            </span>
           </Link>
         ))}
       </nav>
+      <div className="stepinfo" aria-hidden>
+        {mobileInfo.map(([k, v]) => (
+          <span key={k}>
+            {k} <b>{v}</b>
+          </span>
+        ))}
+      </div>
       <div className="stack">{children}</div>
     </EventContext.Provider>
   );

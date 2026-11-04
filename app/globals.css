@@ -316,6 +316,7 @@
   .step .s3 { font-size: 12px; color: var(--sub); }
   .step[aria-current="page"] { border-color: var(--ink); background: var(--ink); color: var(--bg); }
   .step[aria-current="page"] .s1, .step[aria-current="page"] .s3 { color: inherit; opacity: 0.75; }
+  .step .num, .step .lab, .stepinfo { display: none; }
   .sessbar { display: flex; gap: 6px; flex-wrap: wrap; align-items: center; }
   .sess { border: 1.5px solid var(--line); background: var(--surface); border-radius: 999px; padding: 6px 14px; font-weight: 600; font-size: 14px; min-height: 40px; color: var(--sub); }
   .sess.done { color: var(--ink); }
@@ -528,7 +529,22 @@
     .cklog { position: static; }
   }
   @media (max-width: 700px) {
-    .steps { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    /* 휴대폰: ①─②─③─④ 진행 표시 + 요약 한 줄 */
+    .steps { grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 0; position: relative; }
+    .steps::before { content: ""; position: absolute; left: 12.5%; right: 12.5%; top: 16px; height: 2px; background: var(--line); }
+    .step { border: 0; background: transparent; padding: 0; min-height: 52px; align-items: center; justify-content: flex-start; gap: 3px; position: relative; min-width: 0; }
+    .step .s1, .step .s2, .step .s3 { display: none; }
+    .step .num { display: grid; place-items: center; width: 32px; height: 32px; border-radius: 50%; background: var(--surface); border: 2px solid var(--line); font-family: var(--f-mono); font-weight: 700; font-size: 13px; color: var(--sub); }
+    .step .lab { display: block; font-size: 12px; font-weight: 600; color: var(--sub); white-space: nowrap; }
+    .step.done .num { border-color: var(--brand); color: var(--brand); }
+    .step[aria-current="page"] { background: transparent; border-color: transparent; color: var(--ink); }
+    .step[aria-current="page"] .num { background: var(--brand); border-color: var(--brand); color: var(--brand-ink); }
+    .step[aria-current="page"] .lab { color: var(--ink); font-weight: 700; }
+    .stepinfo { display: flex; flex-wrap: wrap; gap: 4px 10px; background: var(--surface); border: 1px solid var(--line); border-radius: 10px; padding: 7px 10px; font-size: 12px; color: var(--sub); }
+    .stepinfo b { color: var(--ink); font-family: var(--f-mono); font-weight: 600; }
+    .stepinfo .M { color: var(--male); }
+    .stepinfo .F { color: var(--female); }
+    .stepinfo .ok { color: var(--ok); font-family: var(--f-body); }
     .row2 { grid-template-columns: 1fr; }
     .settings .go { margin-left: 0; width: 100%; }
     .settings .go .btn { flex: 1; }
