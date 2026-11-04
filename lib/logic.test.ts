@@ -143,6 +143,35 @@ describe("조 편성", () => {
     expect(next.m3).toBe(1);
   });
 
+  it("재회를 피할 수 없으면: 같은 사람을 또 만나기보다 한 번 만난 사람끼리", () => {
+    // 1조 1M1F × 2조. A안(m0f0, m1f1) = m0f0 두 번 만남 / B안(m0f1, m1f0) = 각각 한 번 (m1f0은 직전 회차)
+    // 횟수에 비례만 하면 A가 낫지만(20 < 25), 만남 최소화는 B (A 40 > B 25)
+    const P = people(2, 2);
+    const met = buildMet([
+      { no: 1, assign: { m0: 0, f0: 0 } },
+      { no: 2, assign: { m0: 0, f0: 0 } },
+      { no: 3, assign: { m0: 0, f1: 0 } },
+      { no: 4, assign: { m1: 0, f0: 0 } },
+    ]);
+    for (const s of [11, 12, 13]) {
+      const a = solveGroups({ people: P, k: 2, met, mode: "all", base: {}, avoid: true, rng: seeded(s) });
+      expect(a.m0).not.toBe(a.f0);
+      expect(scoreGrouping(P, 2, a, met)).toMatchObject({ mixedPairs: 2, mixedRepeat: 0, mixedTotal: 2 });
+    }
+  });
+
+  it("모두 한 번씩 만났으면: 직전 회차에 만난 이성을 피함", () => {
+    const P = people(2, 2);
+    const met = buildMet([
+      { no: 1, assign: { m0: 0, f0: 0, m1: 1, f1: 1 } },
+      { no: 2, assign: { m0: 0, f1: 0, m1: 1, f0: 1 } },
+    ]);
+    for (const s of [21, 22, 23]) {
+      const a = solveGroups({ people: P, k: 2, met, mode: "all", base: {}, avoid: true, rng: seeded(s) });
+      expect(a.m0).toBe(a.f0);
+    }
+  });
+
   it("점수: 이성 재회 쌍과 미배정 수", () => {
     const P = people(2, 2);
     const met = buildMet([{ no: 1, assign: { m0: 0, f0: 0, m1: 1, f1: 1 } }]);

@@ -435,6 +435,7 @@
   .sc .val { font-size: 19px; font-weight: 600; }
   .sc.good .val { color: var(--ok); }
   .sc.bad .val { color: var(--warn); }
+  .sc .val small { font-size: 0.7em; color: var(--sub); font-weight: 500; }
   .groups { display: grid; grid-template-columns: repeat(auto-fill, minmax(250px, 1fr)); gap: 12px; }
   .grp { background: var(--surface); border: 1.5px solid var(--line); border-radius: 14px; padding: 12px; display: flex; flex-direction: column; gap: 10px; box-shadow: var(--shadow); min-width: 0; }
   .grp.warn { border-color: var(--warn); }

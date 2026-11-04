@@ -217,7 +217,14 @@ function GroupsBoard({
   const metInGroup = (id: string, gi: number, a: Assign = assign) =>
     groupsOf(a, ids, k)[gi].filter((o) => o !== id && gender(o) !== gender(id) && met.has(pairKey(id, o)));
 
-  const mixedMetPairs = (a: Assign) => scoreGrouping(people, k, a, met).mixedPairs;
+  const randomToast = (a: Assign) => {
+    if (!avoid) return "랜덤으로 배정했어요";
+    const s = scoreGrouping(people, k, a, met);
+    if (!s.mixedPairs) return "전에 만난 이성과 겹치지 않게 배정했어요";
+    return s.mixedRepeat
+      ? `만남을 최소화했어요 · 남녀 재회 ${s.mixedPairs}쌍 (두 번 이상 ${s.mixedRepeat}쌍)`
+      : `만남을 최소화했어요 · 남녀 재회 ${s.mixedPairs}쌍, 모두 한 번만 만난 사이예요`;
+  };
 
   const randomize = () => {
     if (mode !== "all") {
@@ -231,8 +238,7 @@ function GroupsBoard({
     const pool = data.kind ? people.filter((p) => p.attended) : people;
     const next = solveGroups({ people: pool, k, met, mode, base: assign, avoid, balance: data.kind ? "ratio" : "size" });
     commit({ k, assign: next });
-    const mf = mixedMetPairs(next);
-    toast(!avoid ? "랜덤으로 배정했어요" : mf ? `최대한 피했지만 남녀 재회 ${mf}쌍이 남았어요` : "전에 만난 이성과 겹치지 않게 배정했어요");
+    toast(randomToast(next));
   };
 
   // 보조 동작: PC에서는 버튼, 휴대폰에서는 ⋯ 메뉴
@@ -328,7 +334,7 @@ function GroupsBoard({
           <span className="lbl">겹침 방지</span>
           <label className="chk">
             <input type="checkbox" checked={avoid} onChange={(e) => setAvoid(e.target.checked)} />{" "}
-            이전 회차에 같은 조였던 이성 피하기
+            전에 만난 이성 최소화
           </label>
         </div>
         <div className="go">
@@ -360,8 +366,20 @@ function GroupsBoard({
             <span className="lfull">전에 같은 조였던 남녀 쌍</span>
             <span className="lshort">남녀 재회</span>
           </span>
-          <span className="val num">{score.mixedPairs}</span>
+          <span className="val num">
+            {score.mixedPairs}
+            <small> / {score.mixedTotal}</small>
+          </span>
         </div>
+        {score.mixedPairs > 0 && (
+          <div className={`sc ${score.mixedRepeat ? "bad" : "good"}`}>
+            <span className="lbl">
+              <span className="lfull">두 번 이상 만난 남녀 쌍</span>
+              <span className="lshort">2번+ 재회</span>
+            </span>
+            <span className="val num">{score.mixedRepeat}</span>
+          </div>
+        )}
         <div className="sc">
           <span className="lbl">같은 성별 재회</span>
           <span className="val num">{score.samePairs}</span>
@@ -376,6 +394,7 @@ function GroupsBoard({
         {gm.map((m, gi) => {
           const metIds = new Set<string>();
           let pairs = 0;
+          const mixedAll = m.filter((id) => gender(id) === "M").length * m.filter((id) => gender(id) === "F").length;
           for (let i = 0; i < m.length; i++)
             for (let j = i + 1; j < m.length; j++)
               if (met.has(pairKey(m[i], m[j])) && gender(m[i]) !== gender(m[j])) {
@@ -388,7 +407,7 @@ function GroupsBoard({
               <div className="hd">
                 <span className="no">{gi + 1}조</span>
                 <span className="cnt num">{m.length}명</span>
-                <span className={`pill ${pairs ? "w" : "ok"}`}>{pairs ? `남녀 재회 ${pairs}쌍` : "이성 모두 새 만남"}</span>
+                <span className={`pill ${pairs ? "w" : "ok"}`}>{pairs ? `남녀 재회 ${pairs}/${mixedAll}쌍` : "이성 모두 새 만남"}</span>
               </div>
               {(["M", "F"] as const).map((g) => {
                 const L = m.filter((id) => gender(id) === g).sort((a, b) => koCompare(name(a), name(b)));

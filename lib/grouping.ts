@@ -60,31 +60,63 @@ export const isAssigned = (assign: Assign, id: string, k: number) => {
   return x != null && x >= 0 && x < k;
 };
 
-export type GroupingScore = { mixedPairs: number; samePairs: number; unassigned: number; cost: number };
+/** 비교 대상 중 가장 최근 회차 번호 (없으면 -1) */
+export function latestOf(met: MetMap): number {
+  let x = -1;
+  for (const list of met.values()) for (const n of list) if (n > x) x = n;
+  return x;
+}
 
-/** 현재 편성 점수: 이성 재회 쌍 수, 동성 재회 쌍 수, 미배정 수 */
+/**
+ * 이전 만남 가중치. 재회를 다 피할 수 없는 뒤 회차에서도 만남을 최소화하도록
+ * 만난 횟수의 제곱으로 키운다: 한 사람을 세 번 만나기보다 여러 사람을 두 번씩 만나게.
+ * - 이성: 10 × 횟수² (+5 직전 회차에 만났으면: 지난주에 본 사람보다 오래전에 본 사람)
+ * - 동성: 횟수²
+ */
+export function meetWeight(list: number[] | undefined, mixed: boolean, latest: number): number {
+  if (!list?.length) return 0;
+  const n = list.length;
+  return mixed ? 10 * n * n + (list.includes(latest) ? 5 : 0) : n * n;
+}
+
+export type GroupingScore = {
+  /** 전에 같은 조였던 남녀 쌍 */
+  mixedPairs: number;
+  /** 그중 두 번 이상 만난 쌍 (이번이 세 번째 이상) */
+  mixedRepeat: number;
+  /** 조 안의 남녀 쌍 전체 (재회 + 새 만남) */
+  mixedTotal: number;
+  samePairs: number;
+  unassigned: number;
+  cost: number;
+};
+
+/** 현재 편성 점수: 이성 재회 쌍 수(전체 중), 두 번 이상 재회, 동성 재회 쌍 수, 미배정 수 */
 export function scoreGrouping(people: Person[], k: number, assign: Assign, met: MetMap): GroupingScore {
   const G = new Map(people.map((p) => [p.id, p.gender]));
   const ids = people.map((p) => p.id);
+  const latest = latestOf(met);
   let mixedPairs = 0;
+  let mixedRepeat = 0;
+  let mixedTotal = 0;
   let samePairs = 0;
   let cost = 0;
   for (const m of groupsOf(assign, ids, k)) {
     for (let i = 0; i < m.length; i++)
       for (let j = i + 1; j < m.length; j++) {
+        const mixed = G.get(m[i]) !== G.get(m[j]);
+        if (mixed) mixedTotal++;
         const list = met.get(pairKey(m[i], m[j]));
         if (!list) continue;
-        if (G.get(m[i]) !== G.get(m[j])) {
+        cost += meetWeight(list, mixed, latest);
+        if (mixed) {
           mixedPairs++;
-          cost += 10 * list.length;
-        } else {
-          samePairs++;
-          cost += list.length;
-        }
+          if (list.length >= 2) mixedRepeat++;
+        } else samePairs++;
       }
   }
   const unassigned = ids.filter((id) => !isAssigned(assign, id, k)).length;
-  return { mixedPairs, samePairs, unassigned, cost };
+  return { mixedPairs, mixedRepeat, mixedTotal, samePairs, unassigned, cost };
 }
 
 export type SolveInput = {
@@ -103,17 +135,15 @@ export type SolveInput = {
  * 조 편성.
  * - all: 남녀 모두 다시 배정
  * - fixM/fixF: 고정 성별은 현재 조 유지(미배정자는 그 성별이 적은 조부터), 나머지 성별만 재배정
- * - avoid: 이전 회차에 만난 쌍(이성 10, 동성 1 × 횟수)을 최소화
+ * - avoid: 이전 회차에 만난 쌍을 최소화 (meetWeight: 횟수² 가중 + 직전 회차 가산, 이성 우선)
  * - balance=ratio: 조마다 남녀 수 차이가 최소가 되게 정원을 잡는다 (인원이 많은 성별에 맞춰 다른 성별을 채움)
  */
 export function solveGroups({ people, k, met, mode, base, avoid, balance = "size", rng = Math.random }: SolveInput): Record<string, number> {
   const G = new Map(people.map((p) => [p.id, p.gender]));
   const gen = (id: string) => G.get(id) as Gender;
   const ids = people.map((p) => p.id);
-  const W = (a: string, b: string) => {
-    const m = met.get(pairKey(a, b));
-    return m ? (gen(a) !== gen(b) ? 10 : 1) * m.length : 0;
-  };
+  const latest = latestOf(met);
+  const W = (a: string, b: string) => meetWeight(met.get(pairKey(a, b)), gen(a) !== gen(b), latest);
   const randG: Gender[] = mode === "all" ? ["M", "F"] : mode === "fixM" ? ["F"] : ["M"];
   const fixG: Gender | null = mode === "fixM" ? "M" : mode === "fixF" ? "F" : null;
 
