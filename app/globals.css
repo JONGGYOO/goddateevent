@@ -257,6 +257,10 @@
   /* 표 */
   .tablewrap { background: var(--surface); border: 1px solid var(--line); border-radius: 14px; overflow-x: auto; }
   .tablewrap table { width: 100%; border-collapse: collapse; min-width: 820px; }
+  /* 내용 폭에 맞춘 작은 표 (예: 차량 내역) */
+  .tablewrap.fit { width: fit-content; max-width: 100%; }
+  .tablewrap.fit table { width: auto; min-width: 0; }
+  .tablewrap.fit th, .tablewrap.fit td { padding-right: 28px; }
   .tablewrap th, .tablewrap td, .prev th, .prev td { text-align: left; padding: 11px 14px; border-bottom: 1px solid var(--line); vertical-align: middle; white-space: nowrap; }
   .tablewrap th, .prev th { font-size: 12px; color: var(--sub); letter-spacing: 0.04em; font-weight: 700; background: var(--sunken); }
   .tablewrap th button { border: 0; background: none; padding: 0; font: inherit; color: inherit; letter-spacing: inherit; }

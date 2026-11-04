@@ -391,7 +391,7 @@ function SessionCars({
           목록 복사
         </button>
       </div>
-      <div className="tablewrap">
+      <div className="tablewrap fit">
         <table>
           <thead>
             <tr>
