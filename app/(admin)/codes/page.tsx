@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, type FormEvent } from "react";
+import { useEffect, useRef, useState, type FormEvent } from "react";
 import type { FunctionReturnType } from "convex/server";
 import { toast } from "sonner";
 import { api } from "@/convex/_generated/api";
@@ -51,7 +51,7 @@ export default function CodesPage() {
                 </div>
               </div>
             )}
-            <div className="box list" role="list" aria-label="코드 그룹">
+            <div className="box list grplist" role="list" aria-label="코드 그룹">
               {groups.length ? (
                 groups.map((g) => (
                   <button
@@ -311,8 +311,14 @@ function CodeRow({ code, first, last }: { code: CodeData; first: boolean; last: 
       })
       .catch((e) => setErr(errInfo(e).message));
 
+  const toggleActive = () => run(update({ id: code._id, label: code.label, active: !code.active }));
+  const startEdit = () => {
+    setLabel(code.label);
+    setMode("edit");
+  };
+
   return (
-    <div className={`it coderow ${code.active ? "" : "off"}`}>
+    <div className={`it coderow ${code.active ? "" : "off"} ${mode !== "view" ? "busy" : ""}`}>
       <div className="ord">
         <button className="btn ghost sm" type="button" aria-label="위로" disabled={first} onClick={() => run(move({ id: code._id, dir: -1 }))}>
           ▲
@@ -378,19 +384,67 @@ function CodeRow({ code, first, last }: { code: CodeData; first: boolean; last: 
           </>
         ) : (
           <>
-            <button className="btn ghost sm" type="button" onClick={() => run(update({ id: code._id, label: code.label, active: !code.active }))}>
-              {code.active ? "사용 안 함" : "다시 사용"}
-            </button>
-            <button className="btn ghost sm" type="button" onClick={() => (setLabel(code.label), setMode("edit"))}>
-              수정
-            </button>
-            <button className="btn ghost sm" type="button" onClick={() => setMode("del")}>
-              삭제
-            </button>
+            <span className="viewacts">
+              <button className="btn ghost sm" type="button" onClick={toggleActive}>
+                {code.active ? "사용 안 함" : "다시 사용"}
+              </button>
+              <button className="btn ghost sm" type="button" onClick={startEdit}>
+                수정
+              </button>
+              <button className="btn ghost sm" type="button" onClick={() => setMode("del")}>
+                삭제
+              </button>
+            </span>
+            <RowMenu
+              items={[
+                ["이름 수정", startEdit],
+                [code.active ? "사용 안 함" : "다시 사용", toggleActive],
+                ["삭제", () => setMode("del")],
+              ]}
+            />
           </>
         )}
       </div>
       {err && <p className="errline">{err}</p>}
+    </div>
+  );
+}
+
+/** 휴대폰에서만 보이는 코드 줄 ⋯ 메뉴 (아래로 펼침) */
+function RowMenu({ items }: { items: [string, () => void][] }) {
+  const [open, setOpen] = useState(false);
+  const ref = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    if (!open) return;
+    const close = (e: MouseEvent) => {
+      if (!ref.current?.contains(e.target as Node)) setOpen(false);
+    };
+    document.addEventListener("click", close);
+    return () => document.removeEventListener("click", close);
+  }, [open]);
+  return (
+    <div className="rowmenu" ref={ref}>
+      <button type="button" className="rmbtn" aria-label="더 보기" aria-expanded={open} onClick={() => setOpen((o) => !o)}>
+        ⋯
+      </button>
+      {open && (
+        <div className="menu" role="menu">
+          {items.map(([label, run]) => (
+            <button
+              key={label}
+              type="button"
+              role="menuitem"
+              className={label === "삭제" ? "del" : ""}
+              onClick={() => {
+                setOpen(false);
+                run();
+              }}
+            >
+              {label}
+            </button>
+          ))}
+        </div>
+      )}
     </div>
   );
 }
