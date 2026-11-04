@@ -7,6 +7,7 @@ import type { Id } from "@/convex/_generated/dataModel";
 import { useAM, useAQ } from "@/components/admin";
 import { GN, Loading, Modal, ModalTitle, Seg, type G } from "@/components/kit";
 import { NeedsSetup, SessBar, useEvent } from "@/components/events/event-context";
+import { DrawAnimation, type DrawPerson } from "@/components/groups/draw-animation";
 import {
   buildMet,
   defaultGroupCount,
@@ -68,6 +69,7 @@ function GroupsBoard({
   const [avoid, setAvoid] = useState(true);
   const [local, setLocal] = useState<Draft | null>(null);
   const [sheet, setSheet] = useState<Sheet>(null);
+  const [replay, setReplay] = useState<{ people: Record<string, DrawPerson>; k: number; assign: Assign } | null>(null);
   const seq = useRef(0);
 
   const people = useMemo(
@@ -253,6 +255,20 @@ function GroupsBoard({
           </label>
         </div>
         <div className="go">
+          <button
+            className="btn ghost"
+            type="button"
+            disabled={!ids.some((id) => isAssigned(assign, id, k))}
+            onClick={() =>
+              setReplay({
+                people: Object.fromEntries(people.map((p) => [p.id, { name: p.name, g: p.gender }])),
+                k,
+                assign: Object.fromEntries(ids.filter((id) => isAssigned(assign, id, k)).map((id) => [id, assign[id]])),
+              })
+            }
+          >
+            조 편성 다시 보기
+          </button>
           {locked ? (
             <span className="pill ok">확정됨</span>
           ) : (
@@ -429,6 +445,15 @@ function GroupsBoard({
         나눴으면 ‘조 확정’을 눌러 잠가 두세요.
       </p>
 
+      {replay && (
+        <DrawAnimation
+          people={replay.people}
+          k={replay.k}
+          assign={replay.assign}
+          title={`${what} 다시 보기`}
+          onClose={() => setReplay(null)}
+        />
+      )}
       {sheet?.kind === "person" && byId.has(sheet.id) && (
         <PersonSheet
           id={sheet.id}

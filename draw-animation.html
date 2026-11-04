@@ -1,0 +1,307 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>조 뽑기 애니메이션</title>
+<!--
+  갓데이트 출석부 · "조 뽑기 다시 보기" 애니메이션 발췌본 (단독 실행 가능)
+  ─────────────────────────────────────────────────────────────
+  - 이 파일을 브라우저로 열면 예시 50명(남 25 · 여 25)으로 바로 재생됩니다.
+  - 실제 앱에서는 CLAUDE.md 7.3 ③ 기준으로 components/groups/DrawAnimation.tsx 로 옮깁니다.
+  - 핵심 API:
+      playDraw({ people, k, assign, fixedIds, title, msg })
+        people   : { [id]: { name, g: "M" | "F" } }
+        k        : 조 개수
+        assign   : { [id]: 조 번호(0부터) }   ← 조 편성 알고리즘이 먼저 정한 결과
+        fixedIds : 처음부터 칸에 놓을 사람(남자 고정/여자 고정 모드의 고정 성별). 다시 보기에서는 빈 배열
+        title    : 상단 제목 (예: "4회차 조 뽑기")
+        msg      : 닫을 때 띄울 안내 문구(없으면 null)
+  - 원리: 결과(어느 조인지)를 먼저 정하고, 공의 경로를 그 조 칸에 정확히 떨어지도록 역산합니다.
+          핀 하나를 만날 때마다 왼쪽/오른쪽으로 딱 한 칸(갈톤 보드). 줄 수와 칸 간격을 맞춰
+          1조 위에서 출발한 공도 맨 오른쪽 조까지 갈 수 있습니다.
+-->
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Gowun+Batang:wght@700&family=IBM+Plex+Sans+KR:wght@400;600;700&display=swap">
+<style>
+:root{
+  --bg:#F3F5F4; --surface:#FFFFFF; --sunken:#E8ECEA; --line:#D6DDDA;
+  --ink:#18211E; --muted:#5E6B66; --accent:#2E5E4E; --accent-ink:#FFFFFF;
+  --male:#2F63A3; --male-soft:#E1EAF5; --female:#B03F66; --female-soft:#F6E2E9;
+  --shadow:0 1px 2px rgba(20,35,30,.06),0 4px 14px rgba(20,35,30,.06);
+  --f-display:"Gowun Batang",serif;
+  --f-body:"IBM Plex Sans KR",system-ui,-apple-system,"Apple SD Gothic Neo","Malgun Gothic",sans-serif;
+}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){
+  --bg:#111715; --surface:#1A2320; --sunken:#0D1311; --line:#2B3833;
+  --ink:#E8EEEB; --muted:#98A7A1; --accent:#6FB79C; --accent-ink:#0E1714;
+  --male:#7FA9DE; --male-soft:#1C2A3B; --female:#E58BAA; --female-soft:#3A1F29;
+  --shadow:0 1px 2px rgba(0,0,0,.4); color-scheme:dark}}
+*{box-sizing:border-box}
+[hidden]{display:none!important}
+body{margin:0;background:var(--bg);color:var(--ink);font-family:var(--f-body);font-size:15px}
+button{font:inherit;color:inherit;cursor:pointer}
+.btn{border:0;border-radius:10px;padding:10px 16px;min-height:44px;font-weight:600;background:var(--accent);color:var(--accent-ink)}
+.btn.ghost{background:var(--surface);color:var(--ink);border:1.5px solid var(--line)}
+.seg{display:inline-flex;background:var(--sunken);border-radius:10px;padding:3px;gap:2px;flex-wrap:wrap}
+.seg button{border:0;background:transparent;padding:8px 13px;border-radius:8px;font-weight:600;color:var(--muted);min-height:40px;font-size:14px}
+.seg button[aria-pressed="true"]{background:var(--surface);color:var(--ink);box-shadow:var(--shadow)}
+.hint{font-size:13px;color:var(--muted)}
+.spacer{flex:1}
+.demo{max-width:720px;margin:0 auto;padding:40px 16px;display:flex;flex-direction:column;gap:14px}
+.demo h1{font-family:var(--f-display);margin:0}
+.demo .row{display:flex;gap:10px;flex-wrap:wrap;align-items:center}
+
+/* ===== 조 뽑기 오버레이 ===== */
+.drawov{position:fixed;inset:0;z-index:25;background:var(--bg);display:flex;flex-direction:column;
+  padding:env(safe-area-inset-top,0px) max(16px,env(safe-area-inset-right,0px)) max(16px,env(safe-area-inset-bottom,0px)) max(16px,env(safe-area-inset-left,0px))}
+.drawbar{display:flex;align-items:center;gap:10px;flex-wrap:wrap;padding-block:12px}
+.drawbar strong{font-family:var(--f-display);font-size:24px}
+.drawstage{flex:1;min-height:0;background:var(--surface);border:1px solid var(--line);border-radius:16px;overflow:hidden}
+.drawstage canvas{display:block}
+.toast{position:fixed;left:50%;bottom:20px;transform:translateX(-50%);background:var(--ink);color:var(--bg);border-radius:14px;padding:12px 18px;z-index:30;font-weight:500}
+</style>
+</head>
+<body>
+
+<!-- 데모 화면 (실제 앱에서는 조 편성 화면의 "조 뽑기 다시 보기" 버튼) -->
+<main class="demo">
+  <h1>조 뽑기 다시 보기</h1>
+  <p class="hint">예시 남 25명 · 여 25명을 무작위로 조에 나눈 뒤, 그 결과를 공 떨어지는 애니메이션으로 보여줍니다.</p>
+  <div class="row"><span class="hint">조 개수</span>
+    <div class="seg" id="demoK"><button type="button" data-k="4" aria-pressed="false">4조</button><button type="button" data-k="5" aria-pressed="true">5조</button><button type="button" data-k="6" aria-pressed="false">6조</button><button type="button" data-k="8" aria-pressed="false">8조</button></div>
+  </div>
+  <div class="row"><button class="btn" type="button" id="demoPlay">조 뽑기 다시 보기</button></div>
+</main>
+
+<!-- ===== 조 뽑기 오버레이 마크업 ===== -->
+<div class="drawov" id="drawOv" hidden role="dialog" aria-modal="true" aria-labelledby="drawTitle">
+  <div class="drawbar"><strong id="drawTitle">조 뽑기</strong><span class="hint" id="drawCnt"></span><span class="spacer"></span>
+    <div class="seg" id="drawSpd">
+      <button type="button" data-sp="0.5" aria-pressed="false">0.5배속</button>
+      <button type="button" data-sp="1" aria-pressed="true">1배속</button>
+      <button type="button" data-sp="2" aria-pressed="false">2배속</button>
+      <button type="button" data-sp="4" aria-pressed="false">4배속</button>
+    </div>
+    <button class="btn ghost" type="button" id="drawSkip">건너뛰기</button>
+    <button class="btn" type="button" id="drawClose">닫기</button>
+  </div>
+  <div class="drawstage" id="drawStage"><canvas id="drawCv" aria-label="이름 공이 핀을 지나 조 칸으로 떨어지는 애니메이션"></canvas></div>
+</div>
+<div class="toast" id="toast" hidden></div>
+
+<script>
+(function(){
+const $=id=>document.getElementById(id);
+const shuffle=a=>{for(let i=a.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[a[i],a[j]]=[a[j],a[i]]}return a};
+let toastT;
+function toast(m){const t=$("toast");t.textContent=m;t.hidden=false;clearTimeout(toastT);toastT=setTimeout(()=>t.hidden=true,2600)}
+
+/* =====================================================================
+   조 뽑기 애니메이션
+   ===================================================================== */
+let DRAW=null, DRAW_SPEED=1;
+// GAP: 공 투입 간격, TD: 첫 낙하, TH: 핀 한 칸 이동, TL: 칸 안착 (ms, 1배속 기준)
+const GAP=260, TD=380, TH=150, TL=320, ROWS=8;
+
+function playDraw({people, k, assign, fixedIds=[], title="조 뽑기", msg=null}){
+  stopDraw(true);
+  const ov=$("drawOv"), cv=$("drawCv"), ctx=cv.getContext("2d"), stage=$("drawStage");
+  $("drawTitle").textContent=title;
+  ov.hidden=false;
+
+  // 색은 CSS 토큰에서 읽어 라이트/다크 모두 대응
+  const cs=getComputedStyle(document.documentElement), tk=n=>cs.getPropertyValue(n).trim();
+  const C={peg:tk("--line"),hit:tk("--accent"),ink:tk("--ink"),M:tk("--male"),F:tk("--female"),
+           Ms:tk("--male-soft"),Fs:tk("--female-soft"),surf:tk("--surface")};
+  const FONT=tk("--f-body");
+  let R=ROWS;
+
+  const ids=Object.keys(assign).filter(id=>people[id]&&assign[id]!=null&&assign[id]<k);
+  const fixedSet=new Set(fixedIds);
+  const fixed=ids.filter(id=>fixedSet.has(id));
+  const drop=shuffle(ids.filter(id=>!fixedSet.has(id)));   // 떨어지는 순서는 무작위
+  const fill=Array(k).fill(0);                              // 조별로 쌓인 수 (슬롯 번호)
+  const tags=fixed.map(id=>({id,gi:assign[id],slot:fill[assign[id]]++}));
+  const rnd=(a,b)=>a+Math.random()*(b-a);
+  const balls=drop.map((id,i)=>({id,gi:assign[id],slot:fill[assign[id]]++,
+    start:i*GAP+Math.random()*90,          // 투입 리듬을 살짝 흔듦
+    persist:rnd(.1,.45),                   // 같은 방향으로 계속 가려는 관성 (공마다 다름)
+    amp:rnd(8,20)*(Math.random()<.5?-1:1)}));
+  const maxCount=Math.max(1,...fill), total=ids.length;
+  const D={T:0,last:null,raf:0,done:false,speed:DRAW_SPEED,L:null,flash:new Map(),msg,endAll:0};
+  DRAW=D;
+  const slotY=j=>D.L.binBottom-(j+.5)*(D.L.tagH+3);
+
+  /* 보드 배치 + 공 경로 계산 (창 크기가 바뀌면 다시 호출) */
+  function layout(){
+    const dpr=window.devicePixelRatio||1, W=stage.clientWidth, H=stage.clientHeight;
+    cv.width=Math.round(W*dpr); cv.height=Math.round(H*dpr); cv.style.width=W+"px"; cv.style.height=H+"px";
+    ctx.setTransform(dpr,0,0,dpr,0,0);
+    const binW=W/k, binBottom=H-30, binH=Math.max(110,Math.min(H*.36,maxCount*17+24)), binTop=binBottom-binH, top=44;
+
+    // 줄 수: 줄 간격 약 24px 이상이 되도록 최대한 많이 (짝수, 8~26줄)
+    R=Math.max(8,Math.min(26,2*Math.floor((binTop-top-16)/24/2)));
+    const rowGap=(binTop-top-16)/R;
+
+    // 칸 간격 h = 조 너비 / n (n 짝수). 맨 왼쪽에서 맨 오른쪽 조 중심까지 R걸음 안에 닿는 가장 촘촘한 n
+    let n=2;
+    for(let c=2*Math.floor(binW/(2*30));c>=2;c-=2){
+      const hh=binW/c, brr=Math.min(30,hh*.9), t0=Math.ceil((brr-binW/2)/hh);
+      if((k-1)*c-t0<=R){n=c;break}
+    }
+    const h=binW/n;
+    const br=Math.max(16,Math.min(30,h*.9,rowGap*1.3));     // 공 반지름 (이름이 잘 읽히게 크게)
+    const c0=binW/2, tb0=Math.ceil((br-c0)/h), tb1=Math.floor((W-br-c0)/h);  // 공이 갈 수 있는 격자 범위
+    const tagH=Math.max(11,Math.min(22,(binBottom-binTop-8)/maxCount-3));
+    D.L={W,H,binW,h,br,top,binTop,rowGap,binBottom,tagH,c0,peg:Math.max(2.5,Math.min(4,h*.12))};
+    const ri=(a,b)=>a+Math.floor(Math.random()*(b-a+1));
+
+    balls.forEach(b=>{
+      const ti=b.gi*n;  // 목표 조 중심의 격자 인덱스 (짝수)
+
+      // 시작 칸: 목표에 R걸음 안에 닿을 수 있는 범위 전체에서 고르게. 줄 0의 핀은 짝수 칸
+      const lo=Math.max(tb0,ti-R), hi=Math.min(tb1,ti+R);
+      let t0=ri(lo,hi); if(((t0%2)+2)%2) t0+=t0+1<=hi?1:-1;
+
+      // 한 칸씩 랜덤 워크: 브리지 확률 (남은걸음+남은거리)/(2×남은걸음) + 관성
+      const ts=[t0]; let t=t0, prev=Math.random()<.5?-1:1;
+      for(let r=0;r<R;r++){
+        const m=R-r, Dd=ti-t; let pp=(m+Dd)/(2*m);
+        if(Math.abs(Dd)<m) pp=pp*(1-b.persist)+(prev>0?1:0)*b.persist;
+        if(t+1>tb1) pp=0; if(t-1<tb0) pp=1;            // 벽에서는 안쪽으로
+        const st=Math.random()<pp?1:-1; t+=st; prev=st; ts.push(t);
+      }
+      if(t!==ti){ // 드물게 벽 때문에 어긋나면 관성 없이 다시
+        t=t0; ts.length=1;
+        for(let r=0;r<R;r++){const m=R-r,Dd=ti-t,st=Dd>=m?1:Dd<=-m?-1:(Math.random()<(m+Dd)/(2*m)?1:-1);t+=st;ts.push(t)}
+      }
+      b.ts=ts;
+
+      // 구간(segment)들: 첫 낙하 → 핀마다 한 칸 이동 → 칸 안착
+      const X=i=>c0+b.ts[i]*h, cy=r=>top+rowGap*(r+.5)-D.L.peg-br+1, segs=[];
+      segs.push({d:TD,f:p=>({x:X(0),y:-br+(cy(0)+br)*p*p})});
+      for(let r=0;r<R;r++){
+        const xa=X(r), xb=X(r+1), ya=cy(r), yb=r+1<R?cy(r+1):binTop-br, fl=[r,b.ts[r]];
+        const hk=rnd(.3,.55), d=TH*rnd(.92,1.12);    // 튕김 높이·시간은 낮고 차분하게 (가독성)
+        segs.push({d,flash:fl,f:p=>({
+          x:xa+(xb-xa)*(.5-.5*Math.cos(Math.PI*p)),                       // 부드러운 좌우 이동
+          y:ya+(yb-ya)*p*p-rowGap*hk*Math.sin(Math.PI*p)*(1-p*.4)})});   // 낮은 포물선
+      }
+      const xl=X(R), yl=binTop-br, amp=Math.sign(b.amp)*Math.min(binW*.06,5);
+      segs.push({d:TL,f:p=>({x:xl+amp*(1-p)*Math.sin(p*Math.PI*2),y:yl+(slotY(b.slot)-yl)*p*p})});
+      b.segs=segs; b.tot=segs.reduce((a,s)=>a+s.d,0);
+    });
+    D.endAll=balls.reduce((m,b)=>Math.max(m,b.start+b.tot),0);
+  }
+
+  /* 현재 시각의 공 위치 (null = 아직 안 나옴, "landed" = 칸에 들어감) */
+  function ballPos(b){
+    let u=D.T-b.start; if(u<0) return null;
+    for(const sg of b.segs){
+      if(u<sg.d){const p=u/sg.d; if(sg.flash&&p<.3) D.flash.set(sg.flash[0]+":"+sg.flash[1],D.T); return sg.f(p)}
+      u-=sg.d;
+    }
+    return "landed";
+  }
+
+  function rr(x,y,w,h,r){ctx.beginPath();ctx.moveTo(x+r,y);ctx.arcTo(x+w,y,x+w,y+h,r);ctx.arcTo(x+w,y+h,x,y+h,r);ctx.arcTo(x,y+h,x,y,r);ctx.arcTo(x,y,x+w,y,r);ctx.closePath()}
+
+  function draw(){
+    const L=D.L; ctx.clearRect(0,0,L.W,L.H);
+    const placed=[...tags], moving=[];
+    balls.forEach(b=>{const p=ballPos(b); if(p==="landed") placed.push(b); else if(p) moving.push({b,p})});
+
+    // 핀: 줄 r에는 격자 인덱스 짝홀이 r과 같은 자리. 공이 닿은 핀은 잠깐 강조
+    const PG=L.peg, tmin=Math.ceil((PG+2-L.c0)/L.h), tmax=Math.floor((L.W-PG-2-L.c0)/L.h);
+    for(let r=0;r<R;r++){
+      const y=L.top+L.rowGap*(r+.5);
+      for(let t=tmin;t<=tmax;t++){
+        if(((t-r)%2+2)%2) continue;
+        const f=D.flash.get(r+":"+t), hot=f!=null&&D.T-f<220*D.speed;
+        ctx.beginPath(); ctx.arc(L.c0+t*L.h,y,hot?PG+2.5:PG,0,Math.PI*2); ctx.fillStyle=hot?C.hit:C.peg; ctx.fill();
+      }
+    }
+
+    // 조 칸 + 라벨
+    const cnt=Array(k).fill(0); placed.forEach(x=>cnt[x.gi]++);
+    ctx.strokeStyle=C.peg; ctx.lineWidth=2;
+    for(let i=0;i<=k;i++){const x=Math.min(L.W-1,Math.max(1,i*L.binW));ctx.beginPath();ctx.moveTo(x,L.binTop);ctx.lineTo(x,L.binBottom);ctx.stroke()}
+    ctx.beginPath(); ctx.moveTo(0,L.binBottom); ctx.lineTo(L.W,L.binBottom); ctx.stroke();
+    ctx.textAlign="center"; ctx.textBaseline="middle";
+    for(let i=0;i<k;i++){
+      ctx.fillStyle=C.ink; ctx.font=`700 ${L.binW<80?12:15}px ${FONT}`;
+      ctx.fillText(L.binW<80?`${i+1}조 ${cnt[i]}`:`${i+1}조 · ${cnt[i]}명`,(i+.5)*L.binW,L.H-14);
+    }
+
+    // 칸에 들어간 사람: 이름 태그로 아래부터 쌓임
+    placed.forEach(x=>{
+      const m=people[x.id], w=Math.min(L.binW-10,130), y=slotY(x.slot), cx=(x.gi+.5)*L.binW;
+      rr(cx-w/2,y-L.tagH/2,w,L.tagH,6); ctx.fillStyle=m.g==="M"?C.Ms:C.Fs; ctx.fill();
+      ctx.fillStyle=m.g==="M"?C.M:C.F; ctx.font=`600 ${Math.min(13,L.tagH-3)}px ${FONT}`; ctx.fillText(m.name,cx,y+.5);
+    });
+
+    // 떨어지는 공: 형제 파랑 / 자매 분홍, 이름은 굵게 최대 18px
+    moving.forEach(({b,p})=>{
+      const m=people[b.id];
+      ctx.beginPath(); ctx.arc(p.x,p.y,L.br,0,Math.PI*2); ctx.fillStyle=m.g==="M"?C.M:C.F; ctx.fill();
+      ctx.lineWidth=2.5; ctx.strokeStyle=C.surf; ctx.stroke();
+      const fs=Math.max(10,Math.min(18,(L.br*2-8)/Math.max(2,m.name.length)));
+      ctx.font=`700 ${fs}px ${FONT}`; ctx.fillStyle=C.surf; ctx.fillText(m.name,p.x,p.y+.5);
+    });
+    $("drawCnt").textContent=`${placed.length}/${total}명`;
+  }
+
+  function finish(){if(D.done)return;D.done=true;$("drawSkip").hidden=true;$("drawClose").textContent="결과 보기"}
+  function frame(now){
+    if(DRAW!==D) return;
+    if(D.last==null) D.last=now;
+    const dt=Math.min(64,now-D.last); D.last=now; D.T+=dt*D.speed;
+    if(D.T>=D.endAll) finish();
+    draw();
+    if(!D.done) D.raf=requestAnimationFrame(frame);
+  }
+  D.relayout=()=>{layout();draw()};
+  D.skip=()=>{D.T=D.endAll+1e7;finish();draw()};
+  $("drawSkip").hidden=false; $("drawClose").textContent="닫기";
+  layout();
+  if(matchMedia("(prefers-reduced-motion: reduce)").matches) D.skip();   // 움직임 줄이기 설정이면 결과만
+  else { draw(); D.raf=requestAnimationFrame(frame); }
+}
+
+function stopDraw(silent){
+  if(!DRAW) return;
+  cancelAnimationFrame(DRAW.raf); const m=DRAW.msg; DRAW=null; $("drawOv").hidden=true;
+  if(!silent&&m) toast(m);
+}
+$("drawSkip").onclick=()=>{if(DRAW)DRAW.skip()};
+$("drawClose").onclick=()=>stopDraw();
+$("drawSpd").addEventListener("click",e=>{
+  const b=e.target.closest("[data-sp]"); if(!b) return;
+  DRAW_SPEED=+b.dataset.sp; if(DRAW) DRAW.speed=DRAW_SPEED;
+  $("drawSpd").querySelectorAll("button").forEach(x=>x.setAttribute("aria-pressed",x===b));
+});
+addEventListener("resize",()=>{if(DRAW)DRAW.relayout()});
+document.addEventListener("keydown",e=>{if(e.key==="Escape"&&DRAW)stopDraw()});
+
+/* =====================================================================
+   데모 데이터 (실제 앱에서는 Convex의 참여자 + groupings.assignments 사용)
+   ===================================================================== */
+const MN=["김민수","김민준","이준호","박성진","최영훈","정우성","강다니엘","조현우","윤재석","장태민","임하늘","한승우","오세진","서지훈","신동혁","권요셉","황바울","안성민","송현석","전다윗","홍길준","유상현","고민석","문태양","배진우"];
+const FN=["김지은","이은혜","박소망","최하은","정예린","강수아","조은비","윤서연","장미래","임사랑","한지혜","오유진","서은총","신예은","권한나","황다은","안소희","송민지","전기쁨","홍주희","유나래","고은솔","문가은","배수정","백시온"];
+const people={};
+MN.forEach((n,i)=>people["M"+i]={name:n,g:"M"});
+FN.forEach((n,i)=>people["F"+i]={name:n,g:"F"});
+let demoK=5;
+function demoAssign(k){ // 성별마다 균등하게 나누는 간단한 예시 (실제는 lib/grouping.ts 결과)
+  const a={};
+  ["M","F"].forEach(g=>shuffle(Object.keys(people).filter(id=>people[id].g===g)).forEach((id,i)=>a[id]=i%k));
+  return a;
+}
+$("demoK").addEventListener("click",e=>{const b=e.target.closest("[data-k]");if(!b)return;demoK=+b.dataset.k;
+  $("demoK").querySelectorAll("button").forEach(x=>x.setAttribute("aria-pressed",x===b))});
+$("demoPlay").onclick=()=>playDraw({people,k:demoK,assign:demoAssign(demoK),title:"4회차 조 뽑기",msg:"조 뽑기를 마쳤어요"});
+})();
+</script>
+</body>
+</html>

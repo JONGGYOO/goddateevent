@@ -397,6 +397,14 @@
   .chip.met::after { content: "재회"; font-size: 10px; font-weight: 700; color: var(--warn); background: var(--surface); border-radius: 4px; padding: 0 4px; }
   .chip.pinned { outline: 2px dashed currentColor; outline-offset: -4px; }
   .chip.absent { opacity: 0.55; }
+
+  /* 조 편성 다시 보기 (공 떨어지는 애니메이션) */
+  .drawov { position: fixed; inset: 0; z-index: 60; background: var(--bg); display: flex; flex-direction: column;
+    padding: env(safe-area-inset-top, 0px) max(16px, env(safe-area-inset-right, 0px)) max(16px, env(safe-area-inset-bottom, 0px)) max(16px, env(safe-area-inset-left, 0px)); }
+  .drawbar { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; padding-block: 12px; }
+  .drawbar strong { font-family: var(--f-display); font-size: 24px; }
+  .drawstage { flex: 1; min-height: 0; background: var(--surface); border: 1px solid var(--line); border-radius: 16px; overflow: hidden; }
+  .drawstage canvas { display: block; }
   .chip.absent::after { content: "미출석"; font-size: 10px; font-weight: 700; color: var(--sub); background: var(--surface); border-radius: 4px; padding: 0 4px; }
   .chips .none { font-size: 13px; color: var(--sub); align-self: center; }
   .pool { background: var(--surface); border: 1.5px dashed var(--line); border-radius: 14px; padding: 12px 14px; display: flex; flex-direction: column; gap: 10px; }
