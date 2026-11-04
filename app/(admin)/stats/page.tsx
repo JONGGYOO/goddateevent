@@ -2,6 +2,7 @@
 
 import { useRouter, useSearchParams } from "next/navigation";
 import { Suspense, useMemo, useState } from "react";
+import { toast } from "sonner";
 import { api } from "@/convex/_generated/api";
 import type { Id } from "@/convex/_generated/dataModel";
 import { useAQ, useToday } from "@/components/admin";
@@ -308,19 +309,53 @@ function CarStats({ eventId, today }: { eventId: Id<"events">; today: string }) 
   return (
     <div className="stack">
       <p className="hint" style={{ margin: 0 }}>
-        회차를 고르면 그 회차에 도착 체크된 차량을 볼 수 있어요.
+        회차를 고르면 그 회차에 도착 체크된 차량을 볼 수 있어요. ‘목록 복사’로 카카오톡이나 문자에 바로 붙여 넣을 수 있어요.
       </p>
-      <SessionCars sessions={data.sessions} people={data.people} today={today} />
+      <SessionCars event={data.event} sessions={data.sessions} people={data.people} today={today} />
     </div>
   );
 }
 
-/** 회차를 골라 도착 체크된 차량(번호·운전자)만 본다 */
-function SessionCars({ sessions, people, today }: { sessions: EventStatsData["sessions"]; people: EventStatsData["people"]; today: string }) {
-  const held = sessions.filter((s) => s.date <= today);
+/** 클립보드 복사 (권한이 없거나 http면 textarea 방식으로) */
+async function copyText(text: string) {
+  try {
+    await navigator.clipboard.writeText(text);
+    return true;
+  } catch {
+    const ta = document.createElement("textarea");
+    ta.value = text;
+    ta.setAttribute("readonly", "");
+    ta.style.position = "fixed";
+    ta.style.opacity = "0";
+    document.body.appendChild(ta);
+    ta.select();
+    let ok = false;
+    try {
+      ok = document.execCommand("copy");
+    } catch {
+      ok = false;
+    }
+    ta.remove();
+    return ok;
+  }
+}
+
+/** 회차를 골라 도착 체크된 차량(번호·운전자)만 본다. 지난 회차 + 날짜와 상관없이 도착 차량이 있는 회차 */
+function SessionCars({
+  event,
+  sessions,
+  people,
+  today,
+}: {
+  event: EventStatsData["event"];
+  sessions: EventStatsData["sessions"];
+  people: EventStatsData["people"];
+  today: string;
+}) {
+  const held = sessions.filter((s) => s.date <= today || s.carChecks.length > 0);
   const [picked, setPicked] = useState<Id<"sessions"> | null>(null);
-  const cur = held.find((s) => s._id === picked) ?? held[held.length - 1];
-  if (!cur) return <div className="empty flat box">아직 진행한 회차가 없어요.</div>;
+  const cur = held.find((s) => s._id === picked) ?? [...held].reverse().find((s) => s.carChecks.length) ?? held[held.length - 1];
+  if (!cur) return <div className="empty flat box">아직 진행한 회차나 도착 체크된 차량이 없어요.</div>;
 
   const byId = new Map(people.map((p) => [p.memberId as string, p]));
   const rows = cur.carChecks
@@ -329,6 +364,14 @@ function SessionCars({ sessions, people, today }: { sessions: EventStatsData["se
       return p ? [{ key: `${c.memberId}-${c.plate}`, plate: c.plate, p, at: c.at }] : [];
     })
     .sort((a, b) => a.at - b.at);
+
+  const copy = async () => {
+    const text = [
+      `[제${event.no}회 ${event.name}] ${cur.no}회차 ${fmtSession(cur.date)} 차량 ${rows.length}대`,
+      ...rows.map((r, i) => `${i + 1}. ${r.plate} ${r.p.name}`),
+    ].join("\n");
+    toast((await copyText(text)) ? `${rows.length}대 목록을 복사했어요. 카카오톡이나 문자에 붙여 넣으세요.` : "복사하지 못했어요. 목록을 길게 눌러 직접 복사해 주세요.");
+  };
 
   return (
     <div className="stack" style={{ gap: 10 }}>
@@ -344,6 +387,9 @@ function SessionCars({ sessions, people, today }: { sessions: EventStatsData["se
         <span className="hint">
           {cur.no}회차 도착 <strong className="num">{rows.length}</strong>대
         </span>
+        <button className="btn" type="button" disabled={!rows.length} onClick={copy}>
+          목록 복사
+        </button>
       </div>
       <div className="tablewrap">
         <table>
