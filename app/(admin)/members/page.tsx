@@ -52,7 +52,6 @@ export default function MembersPage() {
       <div className="pagehead">
         <div>
           <h1>회원관리</h1>
-          <span className="sub">전체 회원 명부입니다. 행사마다 이 명부에서 참여 인원을 고릅니다. 참여 행사와 출석률은 통계에서 봐요.</span>
         </div>
         <div className="spacer" />
         <button className="btn ghost" type="button" onClick={() => setImporting(true)} disabled={!members}>

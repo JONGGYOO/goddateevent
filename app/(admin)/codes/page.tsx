@@ -26,10 +26,6 @@ export default function CodesPage() {
       <div className="pagehead">
         <div>
           <h1>공통코드</h1>
-          <span className="sub">
-            화면에서 골라 쓰는 항목을 그룹별로 관리합니다. 출석체크 메모는 ‘출석 메모’, 조 편성의 추가 조(식사조·게임조 등)는 ‘조 종류’ 그룹의
-            코드를 씁니다.
-          </span>
         </div>
       </div>
       {!data ? (

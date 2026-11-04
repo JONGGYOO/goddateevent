@@ -3,12 +3,14 @@
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useState } from "react";
+import { LogOut } from "lucide-react";
 
+// [주소, 이름, 휴대폰용 짧은 이름]
 const NAV = [
-  ["/members", "회원관리"],
-  ["/events", "행사관리"],
-  ["/stats", "통계"],
-  ["/codes", "공통코드"],
+  ["/members", "회원관리", "회원"],
+  ["/events", "행사관리", "행사"],
+  ["/stats", "통계", "통계"],
+  ["/codes", "공통코드", "코드"],
 ] as const;
 
 export function AppBar() {
@@ -31,16 +33,20 @@ export function AppBar() {
           갓데이트 출석부
         </Link>
         <nav className="mainnav" aria-label="주 메뉴">
-          {NAV.map(([href, label]) => (
-            <Link key={href} href={href} aria-current={pathname.startsWith(href) ? "page" : undefined}>
-              {label}
+          {NAV.map(([href, label, short]) => (
+            <Link key={href} href={href} aria-label={label} aria-current={pathname.startsWith(href) ? "page" : undefined}>
+              <span className="full">{label}</span>
+              <span className="short" aria-hidden>
+                {short}
+              </span>
             </Link>
           ))}
         </nav>
         <span className="who">
           <span className="label">admin 로그인</span>
-          <button className="btn ghost sm" type="button" onClick={logout} disabled={busy}>
-            로그아웃
+          <button className="btn ghost sm logout" type="button" onClick={logout} disabled={busy} aria-label="로그아웃">
+            <LogOut size={18} aria-hidden />
+            <span className="full">로그아웃</span>
           </button>
         </span>
       </div>

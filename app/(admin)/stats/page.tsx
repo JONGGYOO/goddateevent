@@ -50,7 +50,6 @@ function Stats() {
       <div className="pagehead">
         <div>
           <h1>통계</h1>
-          <span className="sub">행사별 회차 출석, 회차별 차량 도착 내역, 회원별 참여 행사·출석률을 봅니다. 출석률은 지난 회차와 오늘 회차만 계산해요.</span>
         </div>
       </div>
       <div className="controls">

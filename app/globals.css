@@ -194,6 +194,7 @@
   .mainnav a { border-radius: 9px; padding: 8px 14px; font-weight: 600; color: var(--sub); min-height: 42px; display: inline-flex; align-items: center; }
   .mainnav a[aria-current="page"] { background: var(--ink); color: var(--bg); }
   .appbar .who { margin-left: auto; display: flex; align-items: center; gap: 10px; font-size: 13px; color: var(--sub); }
+  .mainnav .short { display: none; }
 
   .app { max-width: 1400px; margin: 0 auto; display: flex; flex-direction: column; gap: 14px; padding: 16px max(16px, env(safe-area-inset-left, 0px)) 40px; width: 100%; }
   .pagehead { display: flex; flex-wrap: wrap; gap: 10px 16px; align-items: flex-end; }
@@ -533,6 +534,20 @@
     .inform.codeadd { grid-template-columns: minmax(0, 1fr) auto; }
     .inform.codeadd > .btn { grid-column: auto; }
     .appbar .who .label { display: none; }
+    /* 휴대폰: 메뉴 4개 + 로그아웃 아이콘을 한 줄로 */
+    .appbar .in { flex-wrap: nowrap; gap: 6px; padding-block: 6px; }
+    .appbar .logo { display: none; }
+    .mainnav { flex-wrap: nowrap; gap: 2px; flex: 1; min-width: 0; }
+    .mainnav a { flex: 1; justify-content: center; padding: 8px 6px; min-height: 44px; }
+    .mainnav .full { display: none; }
+    .mainnav .short { display: inline; }
+    .appbar .who { margin-left: 0; }
+    .appbar .logout { width: 44px; min-height: 44px; padding: 0; }
+    .appbar .logout .full { display: none; }
+    /* 제목 한 줄, 버튼은 아래 한 줄에 나란히 */
+    .pagehead > div:first-child { flex-basis: 100%; }
+    .pagehead > .spacer { display: none; }
+    .pagehead > .btn { flex: 1; }
     .tablewrap.compact th, .tablewrap.compact td { padding: 7px 8px; font-size: 14px; }
     .tablewrap.compact .rate .bar { display: none; }
     .tablewrap.compact .mk { width: 20px; height: 20px; font-size: 10px; }

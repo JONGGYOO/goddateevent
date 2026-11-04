@@ -52,7 +52,6 @@ export default function EventsPage() {
       <div className="pagehead">
         <div>
           <h1>행사관리</h1>
-          <span className="sub">행사를 만들고, 행사를 눌러 회차 · 참여 인원 · 조 편성 · 출석체크를 진행합니다.</span>
         </div>
       </div>
       <form className="inform" onSubmit={submit} noValidate autoComplete="off">
