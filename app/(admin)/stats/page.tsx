@@ -6,7 +6,7 @@ import { toast } from "sonner";
 import { api } from "@/convex/_generated/api";
 import type { Id } from "@/convex/_generated/dataModel";
 import { useAQ, useToday } from "@/components/admin";
-import { G_OPTIONS, GN, Hl, Loading, Meter, SearchBox, Seg, Stat, pct, type GFilter } from "@/components/kit";
+import { G_OPTIONS, Hl, Loading, Meter, SearchBox, Seg, Stat, pct, type GFilter } from "@/components/kit";
 import type { FunctionReturnType } from "convex/server";
 import { fmtSession } from "@/lib/date";
 import { koCompare, matchAt } from "@/lib/hangul";
@@ -161,16 +161,15 @@ function EventStats({ eventId, today, ...f }: { eventId: Id<"events">; today: st
       </section>
 
       <h2 className="sectitle">회차별 출석</h2>
-      <div className="tablewrap">
-        <table style={{ minWidth: 640 }}>
+      <div className="tablewrap compact">
+        <table>
           <thead>
             <tr>
               <th>회차</th>
-              <th>날짜</th>
               <th>형제</th>
               <th>자매</th>
-              <th>전체 출석률</th>
-              <th>차량 도착</th>
+              <th>출석률</th>
+              <th>차량</th>
             </tr>
           </thead>
           <tbody>
@@ -181,8 +180,8 @@ function EventStats({ eventId, today, ...f }: { eventId: Id<"events">; today: st
                     <tr key={s._id}>
                       <td>
                         <strong>{s.no}회차</strong>
+                        <span className="sub2">{fmtSession(s.date)}</span>
                       </td>
-                      <td>{fmtSession(s.date)}</td>
                       <td colSpan={4} className="muted">
                         예정
                       </td>
@@ -195,10 +194,8 @@ function EventStats({ eventId, today, ...f }: { eventId: Id<"events">; today: st
                 return (
                   <tr key={s._id}>
                     <td>
-                      <strong>{s.no}회차</strong>
-                    </td>
-                    <td>
-                      {fmtSession(s.date)} {s.date === today && <span className="pill ok">오늘</span>}
+                      <strong>{s.no}회차</strong> {s.date === today && <span className="pill ok">오늘</span>}
+                      <span className="sub2">{fmtSession(s.date)}</span>
                     </td>
                     <td className="num">{c("M")}</td>
                     <td className="num">{c("F")}</td>
@@ -211,7 +208,7 @@ function EventStats({ eventId, today, ...f }: { eventId: Id<"events">; today: st
               })
             ) : (
               <tr>
-                <td colSpan={6} className="muted">
+                <td colSpan={5} className="muted">
                   회차가 없어요.
                 </td>
               </tr>
@@ -228,8 +225,8 @@ function EventStats({ eventId, today, ...f }: { eventId: Id<"events">; today: st
           ["low", "출석률 낮은 순"],
         ]}
       />
-      <div className="tablewrap">
-        <table style={{ minWidth: 600 }}>
+      <div className="tablewrap compact">
+        <table>
           <thead>
             <tr>
               <th>이름</th>
@@ -243,7 +240,6 @@ function EventStats({ eventId, today, ...f }: { eventId: Id<"events">; today: st
                 </span>
               </th>
               <th>출석</th>
-              <th>출석률</th>
             </tr>
           </thead>
           <tbody>
@@ -275,17 +271,14 @@ function EventStats({ eventId, today, ...f }: { eventId: Id<"events">; today: st
                       )}
                     </span>
                   </td>
-                  <td className="num">
-                    {p.a}/{held.length}
-                  </td>
                   <td>
-                    <Meter ratio={p.rate} />
+                    <AttCell a={p.a} t={held.length} rate={p.rate} />
                   </td>
                 </tr>
               ))
             ) : (
               <tr>
-                <td colSpan={4} className="muted">
+                <td colSpan={3} className="muted">
                   해당하는 참여자가 없어요.
                 </td>
               </tr>
@@ -297,6 +290,19 @@ function EventStats({ eventId, today, ...f }: { eventId: Id<"events">; today: st
         <span className="mk y">✓</span> 출석 · <span className="mk n">✕</span> 결석 · <span className="mk f">·</span> 예정 회차
       </p>
     </div>
+  );
+}
+
+/** 출석 칸: "3/4" + 출석률 (좁은 화면에서도 한 칸) */
+function AttCell({ a, t, rate }: { a: number; t: number; rate: number | null }) {
+  if (!t) return <span className="muted">-</span>;
+  return (
+    <span className="att">
+      <span className="num">
+        {a}/{t}
+      </span>
+      <Meter ratio={rate} />
+    </span>
   );
 }
 
@@ -464,15 +470,13 @@ function MemberStats({ today, ...f }: { today: string } & FilterProps) {
           ["low", "출석률 낮은 순"],
         ]}
       />
-      <div className="tablewrap">
-        <table style={{ minWidth: 720 }}>
+      <div className="tablewrap compact">
+        <table>
           <thead>
             <tr>
               <th>이름</th>
-              <th>성별</th>
-              <th>참여 행사와 회차별 출석</th>
-              <th>누적 출석</th>
-              <th>출석률</th>
+              <th>참여 행사 · 회차별 출석</th>
+              <th>출석</th>
             </tr>
           </thead>
           <tbody>
@@ -485,15 +489,12 @@ function MemberStats({ today, ...f }: { today: string } & FilterProps) {
                       <Hl text={m.name} q={qn} />
                     </span>
                   </td>
-                  <td>
-                    <span className={`pill ${m.gender}`}>{GN(m.gender)}</span>
-                  </td>
                   <td style={{ whiteSpace: "normal" }}>
                     {m.hs.length ? (
                       <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
                         {m.hs.map((x) => (
-                          <span key={x.no} style={{ display: "flex", gap: 8, alignItems: "center" }}>
-                            <span className="pill ac" style={{ minWidth: 52, textAlign: "center" }}>
+                          <span key={x.no} style={{ display: "flex", gap: 6, alignItems: "center", flexWrap: "wrap" }}>
+                            <span className="pill ac">
                               제{x.no}회
                             </span>
                             <span className="marks">
@@ -514,15 +515,14 @@ function MemberStats({ today, ...f }: { today: string } & FilterProps) {
                       <span className="muted">참여 없음</span>
                     )}
                   </td>
-                  <td className="num">{m.t ? `${m.a}/${m.t}` : "-"}</td>
                   <td>
-                    <Meter ratio={m.rate} />
+                    <AttCell a={m.a} t={m.t} rate={m.rate} />
                   </td>
                 </tr>
               ))
             ) : (
               <tr>
-                <td colSpan={5} className="muted">
+                <td colSpan={3} className="muted">
                   해당하는 회원이 없어요.
                 </td>
               </tr>

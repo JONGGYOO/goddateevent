@@ -257,6 +257,15 @@
   /* 표 */
   .tablewrap { background: var(--surface); border: 1px solid var(--line); border-radius: 14px; overflow-x: auto; }
   .tablewrap table { width: 100%; border-collapse: collapse; min-width: 820px; }
+  /* 촘촘한 표 (통계): 최소 폭 없이 화면에 맞춤 */
+  .tablewrap.compact { width: fit-content; max-width: 100%; }
+  .tablewrap.compact table { min-width: 0; width: auto; }
+  .tablewrap.compact th, .tablewrap.compact td { padding: 8px 22px 8px 12px; }
+  .tablewrap.compact td .nm { font-size: 15px; }
+  .tablewrap.compact .sub2 { display: block; font-size: 12px; color: var(--sub); font-weight: 400; }
+  .tablewrap.compact .rate .bar { width: 44px; }
+  .att { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+  .att .rate .num { color: var(--sub); font-size: 13px; }
   /* 내용 폭에 맞춘 작은 표 (예: 차량 내역) */
   .tablewrap.fit { width: fit-content; max-width: 100%; }
   .tablewrap.fit table { width: auto; min-width: 0; }
@@ -524,6 +533,11 @@
     .inform.codeadd { grid-template-columns: minmax(0, 1fr) auto; }
     .inform.codeadd > .btn { grid-column: auto; }
     .appbar .who .label { display: none; }
+    .tablewrap.compact th, .tablewrap.compact td { padding: 7px 8px; font-size: 14px; }
+    .tablewrap.compact .rate .bar { display: none; }
+    .tablewrap.compact .mk { width: 20px; height: 20px; font-size: 10px; }
+    .tablewrap.compact .marks { gap: 3px; }
+    .att { gap: 4px; }
   }
 }
 
