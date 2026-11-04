@@ -62,22 +62,85 @@ export default function MembersPage() {
         </button>
       </div>
 
-      <section className="summary">
+      <div className="mpills" aria-label="회원 요약">
+        <span>
+          전체<b>{all.length}</b>
+        </span>
+        <span className="M">
+          형제<b>{all.filter((m) => m.gender === "M").length}</b>
+        </span>
+        <span className="F">
+          자매<b>{all.filter((m) => m.gender === "F").length}</b>
+        </span>
+        <span>
+          차량<b>{all.filter((m) => m.cars.length).length}</b>
+        </span>
+      </div>
+      <section className="summary memsum">
         <Stat label="전체 회원" value={all.length} unit="명" />
         <Stat label="형제(남)" value={all.filter((m) => m.gender === "M").length} unit="명" />
         <Stat label="자매(여)" value={all.filter((m) => m.gender === "F").length} unit="명" />
         <Stat label="차량 등록" value={all.filter((m) => m.cars.length).length} unit="명" />
       </section>
 
-      <div className="controls">
+      <div className="controls memtools">
         <Seg value={g} options={G_OPTIONS} onChange={setG} label="성별" />
         <SearchBox value={q} onChange={setQ} placeholder="이름·초성·전화번호·교회·차량번호" />
+        <div className="msort">
+          <Seg
+            value={sort.key}
+            onChange={(key) => setSort({ key, dir: key === "name" ? 1 : -1 })}
+            label="정렬"
+            options={[
+              ["name", "이름순"],
+              ["created", "최근"],
+            ]}
+          />
+        </div>
       </div>
 
+      {members && (
+        <div className="mlist" role="list" aria-label="회원 목록">
+          {rows.length ? (
+            rows.map((m) => (
+              <button key={m._id} type="button" role="listitem" className="mli" onClick={() => setEditor({ member: m })}>
+                <span className="l1">
+                  <span className={`dot ${m.gender}`} />
+                  <span className="nm">
+                    <Hl text={m.name} q={qn} />
+                  </span>
+                  {(dup.get(m.name) ?? 0) > 1 && <span className="pill w">동명이인</span>}
+                  <span className="plates">
+                    {m.cars[0] && <span className="plate">{m.cars[0]}</span>}
+                    {m.cars.length > 1 && <span className="plate more">+{m.cars.length - 1}</span>}
+                  </span>
+                </span>
+                <span className="l2">
+                  {[m.phone && <span className="num">{m.phone}</span>, m.church, m.memo && <span className="memo">{m.memo}</span>]
+                    .filter(Boolean)
+                    .map((x, i) => (
+                      <span key={i} className="it">
+                        {x}
+                      </span>
+                    ))}
+                  {!m.phone && !m.church && !m.memo && <span className="it muted">연락처·교회 없음</span>}
+                </span>
+              </button>
+            ))
+          ) : (
+            <div className="empty flat">
+              <strong>{q ? `‘${q}’에 맞는 회원이 없어요` : "아직 등록된 회원이 없어요"}</strong>
+              <button className="btn" type="button" onClick={() => setEditor({ member: null })}>
+                + 새 회원으로 등록
+              </button>
+            </div>
+          )}
+        </div>
+      )}
       {!members ? (
         <Loading />
       ) : (
-        <div className="tablewrap">
+        <div className="tablewrap memtable">
           <table>
             <thead>
               <tr>

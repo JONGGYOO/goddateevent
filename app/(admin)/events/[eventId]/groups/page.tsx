@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
 import { api } from "@/convex/_generated/api";
 import type { Id } from "@/convex/_generated/dataModel";
@@ -35,6 +35,54 @@ const KIND_HINT: Record<GroupMode, string> = {
   fixM: "남자는 지금 조에 두고, 출석한 여자만 조별 남자 수에 맞춰 다시 섞습니다.",
   fixF: "여자는 지금 조에 두고, 출석한 남자만 조별 여자 수에 맞춰 다시 섞습니다.",
 };
+
+const MODE_OPTIONS = [
+  ["all", "남녀 모두 랜덤"],
+  ["fixM", "남자 고정 · 여자만 랜덤"],
+  ["fixF", "여자 고정 · 남자만 랜덤"],
+] as const;
+
+type ActionId = "replay" | "prev" | "base" | "clear" | "lock";
+type Action = { id: ActionId; label: string; disabled?: boolean };
+
+/** 휴대폰에서만 보이는 ⋯ 메뉴 (보조 동작 모음) */
+function MoreMenu({ actions, onRun }: { actions: Action[]; onRun: (id: ActionId) => void }) {
+  const [open, setOpen] = useState(false);
+  const ref = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    if (!open) return;
+    const close = (e: MouseEvent) => {
+      if (!ref.current?.contains(e.target as Node)) setOpen(false);
+    };
+    document.addEventListener("click", close);
+    return () => document.removeEventListener("click", close);
+  }, [open]);
+  return (
+    <div className="moremenu" ref={ref}>
+      <button className="btn ghost" type="button" aria-label="더 보기" aria-expanded={open} onClick={() => setOpen((o) => !o)}>
+        ⋯
+      </button>
+      {open && (
+        <div className="menu" role="menu">
+          {actions.map((a) => (
+            <button
+              key={a.id}
+              type="button"
+              role="menuitem"
+              disabled={a.disabled}
+              onClick={() => {
+                setOpen(false);
+                onRun(a.id);
+              }}
+            >
+              {a.label}
+            </button>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
 
 type Draft = { k: number; assign: Assign };
 type Sheet = { kind: "person"; id: string } | { kind: "add"; gi: number; g: G } | null;
@@ -187,6 +235,37 @@ function GroupsBoard({
     toast(!avoid ? "랜덤으로 배정했어요" : mf ? `최대한 피했지만 남녀 재회 ${mf}쌍이 남았어요` : "전에 만난 이성과 겹치지 않게 배정했어요");
   };
 
+  // 보조 동작: PC에서는 버튼, 휴대폰에서는 ⋯ 메뉴
+  const actions: Action[] = [
+    { id: "replay", label: "조 편성 다시 보기", disabled: !ids.some((id) => isAssigned(assign, id, k)) },
+    ...(locked
+      ? []
+      : [
+          ...(prev ? [{ id: "prev" as const, label: `${prev.label} 불러오기` }] : []),
+          ...(sameBase ? [{ id: "base" as const, label: "기본 조 불러오기" }] : []),
+          { id: "clear" as const, label: "모두 비우기" },
+          { id: "lock" as const, label: "조 확정", disabled: lockBusy || !data.grouping?.assignments.length },
+        ]),
+  ];
+  const runAction = (id: ActionId) => {
+    if (id === "replay")
+      setReplay({
+        people: Object.fromEntries(people.map((p) => [p.id, { name: p.name, g: p.gender }])),
+        k,
+        assign: Object.fromEntries(ids.filter((x) => isAssigned(assign, x, k)).map((x) => [x, assign[x]])),
+      });
+    else if (id === "prev" && prev) {
+      commit({ k: prev.groupCount, assign: Object.fromEntries(prev.assignments.map((a) => [a.memberId, a.group])) });
+      toast(`${prev.label} 편성을 불러왔어요`);
+    } else if (id === "base" && sameBase) {
+      commit({ k: sameBase.groupCount, assign: Object.fromEntries(sameBase.assignments.map((a) => [a.memberId, a.group])) });
+      toast("기본 조를 그대로 가져왔어요 (미출석자 포함)");
+    } else if (id === "clear") {
+      commit({ k, assign: {} });
+      toast(`${what}를 비웠어요`);
+    } else if (id === "lock") lock(true);
+  };
+
   const changeK = (nk: number) => {
     if (nk < 2 || nk > 12) return;
     const next: Assign = { ...assign };
@@ -236,16 +315,14 @@ function GroupsBoard({
         </div>
         <div className="set">
           <span className="lbl">랜덤 방식</span>
-          <Seg
-            value={mode}
-            onChange={setMode}
-            label="랜덤 방식"
-            options={[
-              ["all", "남녀 모두 랜덤"],
-              ["fixM", "남자 고정 · 여자만 랜덤"],
-              ["fixF", "여자 고정 · 남자만 랜덤"],
-            ]}
-          />
+          <Seg value={mode} onChange={setMode} label="랜덤 방식" options={MODE_OPTIONS} />
+          <select className="sel modesel" aria-label="랜덤 방식" value={mode} onChange={(e) => setMode(e.target.value as GroupMode)}>
+            {MODE_OPTIONS.map(([v, l]) => (
+              <option key={v} value={v}>
+                {l}
+              </option>
+            ))}
+          </select>
         </div>
         <div className="set">
           <span className="lbl">겹침 방지</span>
@@ -255,77 +332,19 @@ function GroupsBoard({
           </label>
         </div>
         <div className="go">
-          <button
-            className="btn ghost"
-            type="button"
-            disabled={!ids.some((id) => isAssigned(assign, id, k))}
-            onClick={() =>
-              setReplay({
-                people: Object.fromEntries(people.map((p) => [p.id, { name: p.name, g: p.gender }])),
-                k,
-                assign: Object.fromEntries(ids.filter((id) => isAssigned(assign, id, k)).map((id) => [id, assign[id]])),
-              })
-            }
-          >
-            조 편성 다시 보기
-          </button>
+          {actions.map((a) => (
+            <button key={a.id} className="btn ghost sec" type="button" disabled={a.disabled} onClick={() => runAction(a.id)}>
+              {a.label}
+            </button>
+          ))}
           {locked ? (
             <span className="pill ok">확정됨</span>
           ) : (
-            <>
-              {prev && (
-                <button
-                  className="btn ghost"
-                  type="button"
-                  onClick={() => {
-                    commit({
-                      k: prev.groupCount,
-                      assign: Object.fromEntries(prev.assignments.map((a) => [a.memberId, a.group])),
-                    });
-                    toast(`${prev.label} 편성을 불러왔어요`);
-                  }}
-                >
-                  {prev.label} 불러오기
-                </button>
-              )}
-              {sameBase && (
-                <button
-                  className="btn ghost"
-                  type="button"
-                  onClick={() => {
-                    commit({
-                      k: sameBase.groupCount,
-                      assign: Object.fromEntries(sameBase.assignments.map((a) => [a.memberId, a.group])),
-                    });
-                    toast("기본 조를 그대로 가져왔어요 (미출석자 포함)");
-                  }}
-                >
-                  기본 조 불러오기
-                </button>
-              )}
-              <button
-                className="btn ghost"
-                type="button"
-                onClick={() => {
-                  commit({ k, assign: {} });
-                  toast(`${what}를 비웠어요`);
-                }}
-              >
-                모두 비우기
-              </button>
-              <button className="btn big" type="button" onClick={randomize}>
-                랜덤 배정
-              </button>
-              <button
-                className="btn big ghost"
-                type="button"
-                disabled={lockBusy || !data.grouping?.assignments.length}
-                onClick={() => lock(true)}
-              >
-                조 확정
-              </button>
-            </>
+            <button className="btn big" type="button" onClick={randomize}>
+              랜덤 배정
+            </button>
           )}
+          <MoreMenu actions={actions} onRun={runAction} />
         </div>
         <p className="modehint">
           {data.kind ? KIND_HINT[mode] : HINT[mode]}{" "}
@@ -337,7 +356,10 @@ function GroupsBoard({
 
       <div className="score">
         <div className={`sc ${score.mixedPairs ? "bad" : "good"}`}>
-          <span className="lbl">전에 같은 조였던 남녀 쌍</span>
+          <span className="lbl">
+            <span className="lfull">전에 같은 조였던 남녀 쌍</span>
+            <span className="lshort">남녀 재회</span>
+          </span>
           <span className="val num">{score.mixedPairs}</span>
         </div>
         <div className="sc">
