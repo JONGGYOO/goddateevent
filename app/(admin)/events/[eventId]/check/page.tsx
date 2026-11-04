@@ -16,6 +16,11 @@ import { hm } from "@/lib/date";
 import { errInfo } from "@/lib/errors";
 import { plateHead, plateTail } from "@/lib/plate";
 
+const MODES = [
+  ["people", "출석"],
+  ["car", "차량"],
+] as const;
+
 const LOG_LABEL = { in: "출석", out: "출석 취소", car: "차량 도착", carout: "차량 취소" } as const;
 
 export default function CheckTab() {
@@ -39,6 +44,7 @@ function CheckBoard({ sessionId }: { sessionId: Id<"sessions"> }) {
   const [detail, setDetail] = useState<Id<"members"> | null>(null);
   const [walkIn, setWalkIn] = useState(false);
   const [memoFor, setMemoFor] = useState<Id<"members"> | null>(null);
+  const [logOpen, setLogOpen] = useState(false);
   // 서버 반영 전에도 카드가 바로 바뀌도록 (낙관적 표시)
   const [pending, setPending] = useState<Map<Id<"members">, number>>(new Map());
   const searchRef = useRef<HTMLInputElement>(null);
@@ -153,31 +159,57 @@ function CheckBoard({ sessionId }: { sessionId: Id<"sessions"> }) {
   return (
     <>
       <SessBar />
-      <div className="controls">
+      <div className="controls ckmodebar">
         <span className="spacer" />
-        <Seg
-          value={mode}
-          options={[
-            ["people", "출석"],
-            ["car", "차량"],
-          ]}
-          onChange={setMode}
-          label="모드"
-        />
+        <Seg value={mode} options={MODES} onChange={setMode} label="모드" />
       </div>
-      <section className="summary">
+      <section className="summary cksum">
         <Stat label="형제(남)" value={mi} total={mt} ratio={mt ? mi / mt : 0} g="M" />
         <Stat label="자매(여)" value={fi} total={ft} ratio={ft ? fi / ft : 0} g="F" />
         <Stat label="차량 도착" value={carsArrived} total={`${withCar.length}대`} ratio={withCar.length ? carsArrived / withCar.length : 0} />
       </section>
+      {/* 휴대폰: 최근 체크(접기) + 출석/차량 전환을 한 줄로 */}
+      <div className="ckbar">
+        <button className="logbtn" type="button" aria-expanded={logOpen} onClick={() => setLogOpen((o) => !o)}>
+          최근 체크 <b>{board.logs.length}건</b>
+          {board.logs[0] && (
+            <span className="last">
+              {hm(board.logs[0].at)} {board.logs[0].name} {LOG_LABEL[board.logs[0].kind]}
+            </span>
+          )}
+          <span aria-hidden>{logOpen ? "▴" : "▾"}</span>
+        </button>
+        <Seg value={mode} options={MODES} onChange={setMode} label="모드" />
+      </div>
+      {logOpen && (
+        <ol className="cklogm">
+          {board.logs.length ? (
+            board.logs.slice(0, 15).map((l) => (
+              <li key={l._id}>
+                <span className="num">{hm(l.at)}</span>
+                <span>
+                  {l.name}{" "}
+                  <span className="hint" style={l.kind === "out" || l.kind === "carout" ? { textDecoration: "line-through" } : undefined}>
+                    {LOG_LABEL[l.kind]}
+                  </span>
+                </span>
+              </li>
+            ))
+          ) : (
+            <li>
+              <span className="hint">아직 체크한 사람이 없어요</span>
+            </li>
+          )}
+        </ol>
+      )}
 
       <div className="ckmain">
         <div className="stack" style={{ gap: 12 }}>
           {mode === "people" ? (
             <>
-              <div className="controls">
+              <div className="controls cktools">
                 <Seg value={g} options={G_OPTIONS} onChange={setG} label="성별" />
-                <SearchBox ref={searchRef} big value={q} onChange={setQ} placeholder="이름 또는 초성 (예: ㄱㅁㅅ), 전화 뒷자리" />
+                <SearchBox ref={searchRef} big value={q} onChange={setQ} placeholder="이름·초성(ㄱㅁㅅ)·전화 뒷자리" />
                 <label className="chk">
                   <input type="checkbox" checked={onlyAbsent} onChange={(e) => setOnlyAbsent(e.target.checked)} /> 미출석만
                 </label>
@@ -234,14 +266,14 @@ function CheckBoard({ sessionId }: { sessionId: Id<"sessions"> }) {
                   </div>
                 )}
               </div>
-              <p className="hint" style={{ margin: 0 }}>
+              <p className="hint ckhint" style={{ margin: 0 }}>
                 카드를 누르면 바로 {s.no}회차 출석 처리됩니다. 출석한 카드를 다시 누르면 차량 체크나 출석 취소를 할 수 있어요. 카드 아래 메모 칸을 누르면
                 출석 없이 메모만 남겨요.
               </p>
             </>
           ) : (
             <>
-              <div className="controls">
+              <div className="controls cktools">
                 <SearchBox ref={plateRef} big numeric value={vq} onChange={setVq} placeholder="차량번호 뒷 4자리 (예: 2074)" />
                 <label className="chk">
                   <input type="checkbox" checked={onlyNoCar} onChange={(e) => setOnlyNoCar(e.target.checked)} /> 미도착만

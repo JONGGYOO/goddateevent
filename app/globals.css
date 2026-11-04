@@ -394,6 +394,8 @@
   .settings .go { margin-left: auto; display: flex; gap: 8px; flex-wrap: wrap; }
   .modehint { flex-basis: 100%; font-size: 13px; color: var(--sub); margin: -4px 0 0; }
   .modesel, .moremenu { display: none; }
+  /* 출석체크 휴대폰 전용 줄 (태블릿·PC에서는 숨김) */
+  .ckbar, .cklogm { display: none; }
   /* 회원관리 휴대폰 목록 (PC에서는 표) */
   .mpills, .mlist, .msort, .sc .lshort { display: none; }
   .mpills { gap: 6px; flex-wrap: wrap; font-size: 12px; }
@@ -586,6 +588,40 @@
     .settings .go .btn.big { flex: 1; min-height: 44px; font-size: 15px; }
     .settings .go .pill { flex: 1; text-align: center; padding: 12px; }
     .moremenu { display: block; }
+    /* 출석체크 휴대폰: 요약 한 줄 · 최근 체크 접기 · 검색 고정 · 카드 압축 */
+    .ckmodebar, .cklog, .ckhint { display: none; }
+    .cksum { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 6px; }
+    .cksum .stat { padding: 5px 8px; gap: 3px; border-radius: 10px; }
+    .cksum .stat .row { gap: 4px; }
+    .cksum .stat .lbl { font-size: 11px; white-space: nowrap; }
+    .cksum .stat .val { font-size: 14px; }
+    .cksum .stat .val small { font-size: 11px; }
+    .cksum .bar { height: 4px; }
+    .ckbar { display: flex; gap: 6px; align-items: center; }
+    .ckbar .logbtn { flex: 1; min-width: 0; display: flex; align-items: center; gap: 6px; background: var(--surface); border: 1px solid var(--line); border-radius: 10px; padding: 0 10px; min-height: 40px; font-size: 12px; color: var(--sub); text-align: left; }
+    .ckbar .logbtn b { color: var(--ink); }
+    .ckbar .logbtn .last { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; text-align: right; }
+    .ckbar .seg { flex: none; }
+    .cklogm { display: flex; flex-direction: column; list-style: none; margin: 0; padding: 4px 10px; background: var(--surface); border: 1px solid var(--line); border-radius: 10px; font-size: 13px; max-height: 40vh; overflow: auto; }
+    .cklogm li { display: flex; gap: 8px; padding: 6px 0; border-bottom: 1px solid var(--line); }
+    .cklogm li:last-child { border-bottom: 0; }
+    .cklogm .num { color: var(--sub); }
+    .cktools { position: sticky; top: 57px; z-index: 5; background: var(--bg); margin: 0 -16px; padding: 6px 16px 8px; gap: 6px; }
+    .cktools .search { order: -1; flex-basis: 100%; }
+    .cktools .btn { min-height: 36px; padding: 0 10px; font-size: 13px; margin-left: auto; }
+    .cgrid { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 6px; }
+    .card { border-radius: 12px; box-shadow: none; }
+    .card .g { top: 8px; bottom: 8px; width: 3px; }
+    .card .cbody { padding: 7px 8px 6px 11px; min-height: 62px; gap: 2px; }
+    .card .name { font-size: 17px; }
+    .card .nl { gap: 4px; flex-wrap: nowrap; overflow: hidden; }
+    .card .nl .grpn { font-size: 13px; }
+    .card .nl .dup { font-size: 10px; white-space: nowrap; }
+    .card .ph { font-size: 11px; }
+    .card .st { font-size: 11px; padding: 2px 7px; }
+    .card .cf { font-size: 10px; padding: 1px 4px; }
+    .card .cmemo { min-height: 34px; padding: 2px 8px; font-size: 11px; }
+    .card .cmemo .tag { font-size: 11px; padding: 1px 6px; }
     .mpills { display: flex; }
     .memsum, .memtable { display: none; }
     .mlist { display: flex; }
