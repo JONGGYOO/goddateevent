@@ -101,6 +101,7 @@ export default defineSchema({
     memberId: v.id("members"),
     codeIds: v.array(v.id("codes")),
     text: v.optional(v.string()),
+    eta: v.optional(v.string()), // 지각 도착 예정 시각 "HH:MM" (서울)
     device: v.optional(v.string()), // 쓰지 않음 (예전 기록 호환용)
     updatedAt: v.number(),
   })

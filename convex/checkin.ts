@@ -21,6 +21,7 @@ import {
 import { normalizePhone } from "../lib/phone";
 import { normalizePlate, MSG_FRONT } from "../lib/plate";
 import { MAX_MEMO_TEXT } from "../lib/codes";
+import { isHm } from "../lib/date";
 
 /** 출석 화면 한 번에: 참여자 + 출석 + 차량 + 조 번호 + 출석 메모 + 최근 로그 */
 export const boardBySession = adminQuery({
@@ -67,7 +68,7 @@ export const boardBySession = adminQuery({
           const label = await labelOf(id);
           if (label) codes.push({ _id: id, label });
         }
-        memo = { codes, text: mm.text ?? null, at: mm.updatedAt };
+        memo = { codes, text: mm.text ?? null, eta: mm.eta ?? null, at: mm.updatedAt };
       }
       people.push({
         memberId: m._id,
@@ -240,8 +241,9 @@ export const setMemo = adminMutation({
     memberId: v.id("members"),
     codeIds: v.array(v.id("codes")),
     text: v.optional(v.string()),
+    eta: v.optional(v.string()), // 지각 도착 예정 "HH:MM"
   },
-  handler: async (ctx, { sessionId, memberId, codeIds, text }) => {
+  handler: async (ctx, { sessionId, memberId, codeIds, text, eta }) => {
     await requireParticipant(ctx, sessionId, memberId);
     const ids = [...new Set(codeIds)];
     for (const id of ids) {
@@ -249,6 +251,7 @@ export const setMemo = adminMutation({
     }
     const t = (text ?? "").trim();
     if (t.length > MAX_MEMO_TEXT) fieldError("text", `메모는 ${MAX_MEMO_TEXT}자까지 쓸 수 있어요.`);
+    if (eta && !isHm(eta)) fieldError("eta", "도착 예정 시각을 시·분 버튼으로 다시 골라 주세요.");
     const ex = await ctx.db
       .query("checkMemos")
       .withIndex("by_session_member", (q) => q.eq("sessionId", sessionId).eq("memberId", memberId))
@@ -257,7 +260,7 @@ export const setMemo = adminMutation({
       if (ex) await ctx.db.delete("checkMemos", ex._id);
       return null;
     }
-    const doc = { sessionId, memberId, codeIds: ids, text: t || undefined, updatedAt: Date.now() };
+    const doc = { sessionId, memberId, codeIds: ids, text: t || undefined, eta: ids.length ? eta || undefined : undefined, updatedAt: Date.now() };
     if (ex) await ctx.db.replace("checkMemos", ex._id, doc);
     else await ctx.db.insert("checkMemos", doc);
     return null;

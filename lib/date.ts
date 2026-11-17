@@ -48,6 +48,21 @@ const parts = (t: number) => {
   return { y: g("year"), m: g("month"), d: g("day"), h: g("hour") === "24" ? "00" : g("hour"), mi: g("minute") };
 };
 
+/** "HH:MM" 형식 (00:00~23:59) */
+export const isHm = (s: string) => /^([01]\d|2[0-3]):[0-5]\d$/.test(s);
+
+/** epoch ms → 서울 기준 시(0~23) */
+export const seoulHour = (t: number = Date.now()) => Number(parts(t).h);
+
+/** 0~23 → "오후 7" */
+export const ampmHour = (h: number) => `${h < 12 ? "오전" : "오후"} ${h % 12 === 0 ? 12 : h % 12}`;
+
+/** "19:30" → "오후 7:30" */
+export function fmtHm(s: string): string {
+  const [h, m] = s.split(":");
+  return `${ampmHour(Number(h))}:${m}`;
+}
+
 /** epoch ms → "13:24" (서울) */
 export function hm(t: number): string {
   const p = parts(t);

@@ -12,6 +12,7 @@ import { WalkIn } from "@/components/check/walk-in";
 import { MemoSheet } from "@/components/check/memo-sheet";
 import type { Person } from "@/components/check/types";
 import { koCompare, matchAt, stripCho } from "@/lib/hangul";
+import { isLateLabel } from "@/lib/codes";
 import { hm } from "@/lib/date";
 import { errInfo } from "@/lib/errors";
 import { plateHead, plateTail } from "@/lib/plate";
@@ -245,6 +246,7 @@ function CheckBoard({ sessionId }: { sessionId: Id<"sessions"> }) {
                             {p.memo.codes.map((c) => (
                               <span key={c._id} className="tag">
                                 {c.label}
+                                {p.memo?.eta && isLateLabel(c.label) && ` · ${p.memo.eta} 도착 예정`}
                               </span>
                             ))}
                             {p.memo.text && <span className="txt">{p.memo.text}</span>}

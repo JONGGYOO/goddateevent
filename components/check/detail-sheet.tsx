@@ -6,7 +6,8 @@ import { api } from "@/convex/_generated/api";
 import type { Id } from "@/convex/_generated/dataModel";
 import { useAM } from "@/components/admin";
 import { GN, Modal, ModalTitle, PlateFields } from "@/components/kit";
-import { hm } from "@/lib/date";
+import { isLateLabel } from "@/lib/codes";
+import { fmtHm, hm } from "@/lib/date";
 import { errInfo } from "@/lib/errors";
 import { maskPhone } from "@/lib/phone";
 import { readPlateFields } from "@/lib/plate";
@@ -102,7 +103,12 @@ export function DetailSheet({
         {p.memo && (
           <>
             <dt>메모</dt>
-            <dd>{[...p.memo.codes.map((c) => c.label), ...(p.memo.text ? [p.memo.text] : [])].join(" · ")}</dd>
+            <dd>
+              {[
+                ...p.memo.codes.map((c) => (p.memo?.eta && isLateLabel(c.label) ? `${c.label} (${fmtHm(p.memo.eta)} 도착 예정)` : c.label)),
+                ...(p.memo.text ? [p.memo.text] : []),
+              ].join(" · ")}
+            </dd>
           </>
         )}
       </dl>

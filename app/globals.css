@@ -497,6 +497,14 @@
   .codechip { border: 1.5px solid var(--line); background: var(--surface); color: var(--ink); border-radius: 10px; padding: 8px 14px; min-height: 44px; font-weight: 600; font-size: 15px; }
   .codechip[aria-pressed="true"] { background: var(--warn-soft); border-color: var(--warn); color: var(--warn); }
   .codechip[aria-pressed="true"]::before { content: "✓ "; }
+  .codechip:disabled { opacity: .4; }
+  .etapick { display: grid; gap: 8px; padding: 12px; border: 1px dashed var(--warn); border-radius: 12px; background: var(--warn-soft); }
+  .etapick .lbl { font-weight: 700; color: var(--warn); font-size: 14px; }
+  .etapick .row { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
+  .etapick .k { width: 20px; color: var(--sub); font-weight: 600; font-size: 14px; }
+  .etapick .codechip { padding: 6px 10px; font-family: "IBM Plex Mono", monospace; font-size: 14px; }
+  .etapick .codechip[aria-pressed="true"]::before { content: none; }
+  .etapick .out { margin: 0; font-weight: 700; color: var(--warn); }
   .ckmain { display: grid; grid-template-columns: minmax(0, 1fr) 290px; gap: 14px; align-items: start; }
   .cklog { padding: 14px; display: flex; flex-direction: column; gap: 10px; position: sticky; top: 70px; }
   .cklog h2 { font-size: 14px; margin: 0; color: var(--sub); letter-spacing: 0.04em; font-weight: 700; }

@@ -26,6 +26,9 @@ export const isSystemGroup = (key: string) => SYSTEM_GROUPS.some((g) => g.key ==
 export const MAX_LABEL = 30;
 export const MAX_MEMO_TEXT = 200;
 
+/** 이 이름의 출석 메모 코드를 고르면 도착 예정 시각을 함께 받는다 */
+export const isLateLabel = (label: string) => label.trim() === "지각";
+
 export const MSG_KEY = "그룹 키는 영문 대문자로 시작하고 영문 대문자·숫자·_ 2~30자로 입력하세요. (예: CHECK_MEMO)";
 export const MSG_GROUP_NAME = "그룹 이름을 입력하세요.";
 export const MSG_LABEL = `코드 이름을 입력하세요. (${MAX_LABEL}자 이내)`;
