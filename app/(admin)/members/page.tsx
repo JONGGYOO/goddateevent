@@ -3,7 +3,7 @@
 import { useMemo, useState } from "react";
 import { api } from "@/convex/_generated/api";
 import type { Doc } from "@/convex/_generated/dataModel";
-import { useAQ } from "@/components/admin";
+import { AdminOnly, useAQ } from "@/components/admin";
 import { G_OPTIONS, GN, Hl, Loading, SearchBox, Seg, Stat, countNames, type GFilter } from "@/components/kit";
 import { MemberEditor } from "@/components/members/member-editor";
 import { Importer } from "@/components/members/importer";
@@ -54,12 +54,14 @@ export default function MembersPage() {
           <h1>회원관리</h1>
         </div>
         <div className="spacer" />
+        <AdminOnly>
         <button className="btn ghost" type="button" onClick={() => setImporting(true)} disabled={!members}>
           엑셀로 일괄 등록
         </button>
         <button className="btn" type="button" onClick={() => setEditor({ member: null })} disabled={!members}>
           + 회원 등록
         </button>
+        </AdminOnly>
       </div>
 
       <div className="mpills" aria-label="회원 요약">
@@ -130,9 +132,9 @@ export default function MembersPage() {
           ) : (
             <div className="empty flat">
               <strong>{q ? `‘${q}’에 맞는 회원이 없어요` : "아직 등록된 회원이 없어요"}</strong>
-              <button className="btn" type="button" onClick={() => setEditor({ member: null })}>
+              <AdminOnly><button className="btn" type="button" onClick={() => setEditor({ member: null })}>
                 + 새 회원으로 등록
-              </button>
+              </button></AdminOnly>
             </div>
           )}
         </div>
@@ -212,9 +214,9 @@ export default function MembersPage() {
                   <td colSpan={7}>
                     <div className="empty flat">
                       <strong>{q ? `‘${q}’에 맞는 회원이 없어요` : "아직 등록된 회원이 없어요"}</strong>
-                      <button className="btn" type="button" onClick={() => setEditor({ member: null })}>
+                      <AdminOnly><button className="btn" type="button" onClick={() => setEditor({ member: null })}>
                         + 새 회원으로 등록
-                      </button>
+                      </button></AdminOnly>
                     </div>
                   </td>
                 </tr>

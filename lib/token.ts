@@ -1,8 +1,11 @@
-// 관리자 세션 토큰: base64url(exp) + "." + base64url(HMAC_SHA256(secret, exp))
+// 세션 토큰: base64url(payload) + "." + base64url(HMAC_SHA256(secret, payload)), payload = "exp.role"
+// role: admin(모든 기능) / staff(조회 + 출석체크만). 예전 토큰(payload = exp)은 admin으로 본다.
 // Next(proxy, route handler)와 Convex 함수가 같은 코드로 검증한다. Web Crypto만 사용.
 
 export const SESSION_COOKIE = "gd_session";
 export const SESSION_TTL_MS = 12 * 60 * 60 * 1000; // 12시간: 행사 당일 하루 버티게
+
+export type Role = "admin" | "staff";
 
 const enc = new TextEncoder();
 
@@ -37,24 +40,26 @@ function sameBytes(a: Uint8Array, b: Uint8Array): boolean {
   return diff === 0;
 }
 
-export async function signToken(secret: string, now: number = Date.now()): Promise<string> {
-  const exp = String(now + SESSION_TTL_MS);
-  return `${b64url(enc.encode(exp))}.${b64url(await hmac(secret, exp))}`;
+export async function signToken(secret: string, role: Role = "admin", now: number = Date.now()): Promise<string> {
+  const payload = `${now + SESSION_TTL_MS}.${role}`;
+  return `${b64url(enc.encode(payload))}.${b64url(await hmac(secret, payload))}`;
 }
 
-/** 서명과 만료를 확인한다. 유효하면 true */
+/** 서명과 만료를 확인한다. 유효하면 역할, 아니면 null */
 export async function verifyToken(
   secret: string | undefined,
   token: string | undefined | null,
   now: number = Date.now(),
-): Promise<boolean> {
-  if (!secret || !token) return false;
+): Promise<Role | null> {
+  if (!secret || !token) return null;
   const [p, s] = token.split(".");
-  if (!p || !s) return false;
-  const expBytes = fromB64url(p);
+  if (!p || !s) return null;
+  const payloadBytes = fromB64url(p);
   const sig = fromB64url(s);
-  if (!expBytes || !sig) return false;
-  const exp = new TextDecoder().decode(expBytes);
-  if (!/^\d+$/.test(exp) || Number(exp) <= now) return false;
-  return sameBytes(sig, await hmac(secret, exp));
+  if (!payloadBytes || !sig) return null;
+  const payload = new TextDecoder().decode(payloadBytes);
+  const m = /^(\d+)(?:\.(admin|staff))?$/.exec(payload);
+  if (!m || Number(m[1]) <= now) return null;
+  if (!sameBytes(sig, await hmac(secret, payload))) return null;
+  return (m[2] as Role | undefined) ?? "admin";
 }

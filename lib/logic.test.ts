@@ -183,16 +183,33 @@ describe("조 편성", () => {
 });
 
 describe("세션 토큰", () => {
+  const SEC = "secret-1234567890-abcdefghijklmnop";
+  const b64 = (x: string) => btoa(x).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
   it("서명·검증·만료·위조", async () => {
     const now = Date.now();
-    const t = await signToken("secret-1234567890-abcdefghijklmnop", now);
-    expect(await verifyToken("secret-1234567890-abcdefghijklmnop", t, now)).toBe(true);
-    expect(await verifyToken("other-secret", t, now)).toBe(false);
-    expect(await verifyToken("secret-1234567890-abcdefghijklmnop", t, now + SESSION_TTL_MS + 1)).toBe(false);
+    const t = await signToken(SEC, "admin", now);
+    expect(await verifyToken(SEC, t, now)).toBe("admin");
+    expect(await verifyToken("other-secret", t, now)).toBe(null);
+    expect(await verifyToken(SEC, t, now + SESSION_TTL_MS + 1)).toBe(null);
     const [p, s] = t.split(".");
-    expect(await verifyToken("secret-1234567890-abcdefghijklmnop", `${p}x.${s}`, now)).toBe(false);
-    expect(await verifyToken(undefined, t, now)).toBe(false);
-    expect(await verifyToken("secret", "", now)).toBe(false);
+    expect(await verifyToken(SEC, `${p}x.${s}`, now)).toBe(null);
+    expect(await verifyToken(undefined, t, now)).toBe(null);
+    expect(await verifyToken("secret", "", now)).toBe(null);
+  });
+  it("역할: 스태프 토큰은 staff, 역할을 admin으로 바꾸면 서명이 안 맞음", async () => {
+    const now = Date.now();
+    const t = await signToken(SEC, "staff", now);
+    expect(await verifyToken(SEC, t, now)).toBe("staff");
+    const [, s] = t.split(".");
+    expect(await verifyToken(SEC, `${b64(`${now + SESSION_TTL_MS}.admin`)}.${s}`, now)).toBe(null);
+  });
+  it("역할 없는 예전 토큰은 admin", async () => {
+    const now = Date.now();
+    const exp = String(now + 1000);
+    const key = await crypto.subtle.importKey("raw", new TextEncoder().encode(SEC), { name: "HMAC", hash: "SHA-256" }, false, ["sign"]);
+    const sig = new Uint8Array(await crypto.subtle.sign("HMAC", key, new TextEncoder().encode(exp)));
+    const legacy = `${b64(exp)}.${b64(String.fromCharCode(...sig))}`;
+    expect(await verifyToken(SEC, legacy, now)).toBe("admin");
   });
 });
 

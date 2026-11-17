@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { SESSION_COOKIE, SESSION_TTL_MS, signToken } from "@/lib/token";
+import { SESSION_COOKIE, SESSION_TTL_MS, signToken, type Role } from "@/lib/token";
 
 const enc = new TextEncoder();
 
@@ -14,7 +14,7 @@ async function safeEqual(a: string, b: string) {
 }
 
 export async function POST(request: Request) {
-  const { ADMIN_ID, ADMIN_PASSWORD, SESSION_SECRET } = process.env;
+  const { ADMIN_ID, ADMIN_PASSWORD, SESSION_SECRET, STAFF_ID, STAFF_PASSWORD } = process.env;
   if (!ADMIN_ID || !ADMIN_PASSWORD || !SESSION_SECRET) {
     return NextResponse.json({ error: "서버 설정(ADMIN_ID, ADMIN_PASSWORD, SESSION_SECRET)이 비어 있어요. 관리자에게 알려 주세요." }, { status: 500 });
   }
@@ -31,10 +31,13 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "요청 형식이 올바르지 않아요." }, { status: 400 });
   }
 
-  const ok = (await safeEqual(id, ADMIN_ID)) && (await safeEqual(password, ADMIN_PASSWORD));
-  if (!ok) return NextResponse.json({ error: "아이디 또는 비밀번호가 맞지 않아요." }, { status: 401 });
+  // 관리자, 또는 (설정돼 있으면) 스태프 계정: 조회 + 출석체크만
+  let role: Role | null = null;
+  if ((await safeEqual(id, ADMIN_ID)) && (await safeEqual(password, ADMIN_PASSWORD))) role = "admin";
+  else if (STAFF_ID && STAFF_PASSWORD && (await safeEqual(id, STAFF_ID)) && (await safeEqual(password, STAFF_PASSWORD))) role = "staff";
+  if (!role) return NextResponse.json({ error: "아이디 또는 비밀번호가 맞지 않아요." }, { status: 401 });
 
-  const token = await signToken(SESSION_SECRET);
+  const token = await signToken(SESSION_SECRET, role);
   const res = NextResponse.json({ ok: true });
   res.cookies.set(SESSION_COOKIE, token, {
     httpOnly: true,

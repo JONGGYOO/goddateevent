@@ -4,7 +4,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
 import { api } from "@/convex/_generated/api";
 import type { Id } from "@/convex/_generated/dataModel";
-import { useAM, useAQ } from "@/components/admin";
+import { useAM, useAQ, useCanEdit } from "@/components/admin";
 import { GN, Loading, Modal, ModalTitle, Seg, type G } from "@/components/kit";
 import { NeedsSetup, SessBar, useEvent } from "@/components/events/event-context";
 import { DrawAnimation, type DrawPerson } from "@/components/groups/draw-animation";
@@ -112,6 +112,7 @@ function GroupsBoard({
   const data = raw && !raw.missingKind ? raw : raw === null ? null : undefined;
   const saveM = useAM(api.groupings.save);
   const setLockedM = useAM(api.groupings.setLocked);
+  const canEdit = useCanEdit(); // 스태프는 보기만 (확정된 것처럼 잠금)
   const [lockBusy, setLockBusy] = useState(false);
   const [mode, setMode] = useState<GroupMode>("all");
   const [avoid, setAvoid] = useState(true);
@@ -163,6 +164,7 @@ function GroupsBoard({
   if (!data || !server) return data === null ? <div className="empty">회차를 찾을 수 없어요.</div> : <Loading />;
 
   const locked = !!data.grouping?.locked;
+  const ro = locked || !canEdit; // 바꿀 수 없는 상태
   const kindLabel = data.kind?.label ?? "기본 조";
   const what = `${data.session.no}회차 ${kindLabel}`;
   const cur = local ?? server;
@@ -211,7 +213,7 @@ function GroupsBoard({
     }
   };
   const open = (s: Sheet) => {
-    if (!locked) setSheet(s);
+    if (!ro) setSheet(s);
   };
 
   const metInGroup = (id: string, gi: number, a: Assign = assign) =>
@@ -244,7 +246,7 @@ function GroupsBoard({
   // 보조 동작: PC에서는 버튼, 휴대폰에서는 ⋯ 메뉴
   const actions: Action[] = [
     { id: "replay", label: "조 편성 다시 보기", disabled: !ids.some((id) => isAssigned(assign, id, k)) },
-    ...(locked
+    ...(ro
       ? []
       : [
           ...(prev ? [{ id: "prev" as const, label: `${prev.label} 불러오기` }] : []),
@@ -298,7 +300,7 @@ function GroupsBoard({
       {data.kind && (
         <KindInfo sessionId={sessionId} kind={data.kind} attended={people.filter((p) => p.attended).length} total={data.participantCount} onRemoved={() => setKindId(null)} />
       )}
-      {locked && (
+      {locked && canEdit && (
         <div className="notice lockbar">
           <p>{what}가 확정돼 있어요. 바꾸려면 ‘확정 취소’를 누르세요.</p>
           <button className="btn ghost sm" type="button" disabled={lockBusy} onClick={() => lock(false)}>
@@ -306,15 +308,15 @@ function GroupsBoard({
           </button>
         </div>
       )}
-      <section className={`settings ${locked ? "locked" : ""}`}>
+      <section className={`settings ${ro ? "locked" : ""}`}>
         <div className="set">
           <span className="lbl">조 개수</span>
           <div className="stepper">
-            <button type="button" aria-label="조 줄이기" disabled={locked || k <= 2} onClick={() => changeK(k - 1)}>
+            <button type="button" aria-label="조 줄이기" disabled={ro || k <= 2} onClick={() => changeK(k - 1)}>
               −
             </button>
             <output className="num">{k}조</output>
-            <button type="button" aria-label="조 늘리기" disabled={locked || k >= 12} onClick={() => changeK(k + 1)}>
+            <button type="button" aria-label="조 늘리기" disabled={ro || k >= 12} onClick={() => changeK(k + 1)}>
               +
             </button>
           </div>
@@ -343,8 +345,8 @@ function GroupsBoard({
               {a.label}
             </button>
           ))}
-          {locked ? (
-            <span className="pill ok">확정됨</span>
+          {ro ? (
+            locked && <span className="pill ok">확정됨</span>
           ) : (
             <button className="btn big" type="button" onClick={randomize}>
               랜덤 배정
@@ -417,7 +419,7 @@ function GroupsBoard({
                       <span>
                         {GN(g)} <span className="num">{L.length}</span>
                       </span>
-                      {!locked && (
+                      {!ro && (
                         <button type="button" onClick={() => open({ kind: "add", gi, g })}>
                           + 추가
                         </button>
@@ -430,7 +432,7 @@ function GroupsBoard({
                             key={id}
                             type="button"
                             className={`chip ${g} ${metIds.has(id) ? "met" : ""} ${fixG === g ? "pinned" : ""} ${byId.get(id)?.attended ? "" : "absent"}`}
-                            aria-disabled={locked}
+                            aria-disabled={ro}
                             onClick={() => open({ kind: "person", id })}
                           >
                             {name(id)}
@@ -463,7 +465,7 @@ function GroupsBoard({
                       key={id}
                       type="button"
                       className={`chip ${gender(id)}`}
-                      aria-disabled={locked}
+                      aria-disabled={ro}
                       onClick={() => open({ kind: "person", id })}
                     >
                       {name(id)}
@@ -471,7 +473,7 @@ function GroupsBoard({
                   ))}
                 </div>
               ))}
-            {!locked && <span className="hint">이름을 누르면 넣을 조를 고를 수 있어요.</span>}
+            {!ro && <span className="hint">이름을 누르면 넣을 조를 고를 수 있어요.</span>}
           </>
         ) : (
           <h2>
@@ -671,6 +673,7 @@ function KindBar({
 }) {
   const codes = useAQ(api.codes.byKey, { key: GROUP_KIND });
   const addKind = useAM(api.groupings.addKind);
+  const canEdit = useCanEdit();
   const [adding, setAdding] = useState(false);
   const [label, setLabel] = useState("");
   const [err, setErr] = useState("");
@@ -712,7 +715,7 @@ function KindBar({
             {k.locked && " ✓"}
           </button>
         ))}
-        {!adding && (
+        {!adding && canEdit && (
           <button type="button" className="sess add" onClick={() => setAdding(true)}>
             + 조 종류 추가
           </button>
@@ -778,6 +781,7 @@ function KindInfo({
   onRemoved: () => void;
 }) {
   const removeKind = useAM(api.groupings.removeKind);
+  const canEdit = useCanEdit();
   const [confirm, setConfirm] = useState(false);
   return (
     <div className={`notice kindinfo ${confirm ? "err" : ""}`}>
@@ -810,7 +814,7 @@ function KindInfo({
             {kind.label} 대상: 이 회차 출석자 {attended}명 (참여자 {total}명 중). 추가할 때는 기본 조에서 출석자만 가져와요. ‘기본 조
             불러오기’는 기본 조를 그대로(미출석자 포함) 가져오고, ‘랜덤 배정’은 출석자만 남녀 수를 맞춰 섞어요.
           </p>
-          {!kind.locked && (
+          {!kind.locked && canEdit && (
             <button className="btn ghost sm" type="button" onClick={() => setConfirm(true)}>
               이 회차에서 {kind.label} 삭제
             </button>

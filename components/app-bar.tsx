@@ -4,6 +4,7 @@ import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useState } from "react";
 import { LogOut } from "lucide-react";
+import { useCanEdit } from "@/components/admin";
 
 // [주소, 이름, 휴대폰용 짧은 이름]
 const NAV = [
@@ -17,6 +18,7 @@ export function AppBar() {
   const pathname = usePathname();
   const router = useRouter();
   const [busy, setBusy] = useState(false);
+  const canEdit = useCanEdit();
   const logout = async () => {
     setBusy(true);
     try {
@@ -43,7 +45,7 @@ export function AppBar() {
           ))}
         </nav>
         <span className="who">
-          <span className="label">admin 로그인</span>
+          {canEdit ? <span className="label">admin 로그인</span> : <span className="rofbadge">조회 전용 · 출석체크만</span>}
           <button className="btn ghost sm logout" type="button" onClick={logout} disabled={busy} aria-label="로그아웃">
             <LogOut size={18} aria-hidden />
             <span className="full">로그아웃</span>

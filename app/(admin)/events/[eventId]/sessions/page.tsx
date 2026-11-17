@@ -5,7 +5,7 @@ import { useState, type FormEvent } from "react";
 import { toast } from "sonner";
 import { api } from "@/convex/_generated/api";
 import type { Id } from "@/convex/_generated/dataModel";
-import { useAM } from "@/components/admin";
+import { AdminOnly, useAM } from "@/components/admin";
 import { Modal, ModalTitle } from "@/components/kit";
 import { useEvent, type SessionRow } from "@/components/events/event-context";
 import { addDays, fmtSession } from "@/lib/date";
@@ -40,6 +40,7 @@ export default function SessionsTab() {
 
   return (
     <>
+      <AdminOnly>
       <form className="inform" onSubmit={submit} noValidate style={{ gridTemplateColumns: "minmax(0,260px) minmax(0,1fr) auto" }}>
         <div className="field">
           <label htmlFor="sDate">
@@ -55,6 +56,7 @@ export default function SessionsTab() {
         </button>
         {err && <p className="errline">{err}</p>}
       </form>
+      </AdminOnly>
 
       <div className="box list">
         {ss.length ? (
@@ -118,12 +120,14 @@ export default function SessionsTab() {
                   </div>
                 </div>
                 <div className="acts">
+                  <AdminOnly>
                   <button className="btn ghost sm" type="button" onClick={() => setEditing(s)}>
                     날짜 변경
                   </button>
                   <button className="btn ghost sm" type="button" onClick={() => setDelId(s._id)}>
                     삭제
                   </button>
+                  </AdminOnly>
                   <button className="btn ghost sm" type="button" onClick={() => router.push(hrefFor("groups", s._id))}>
                     조 편성
                   </button>

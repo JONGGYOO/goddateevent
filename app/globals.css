@@ -462,8 +462,14 @@
     padding: env(safe-area-inset-top, 0px) max(16px, env(safe-area-inset-right, 0px)) max(16px, env(safe-area-inset-bottom, 0px)) max(16px, env(safe-area-inset-left, 0px)); }
   .drawbar { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; padding-block: 12px; }
   .drawbar strong { font-family: var(--f-display); font-size: 24px; }
-  .drawstage { flex: 1; min-height: 0; background: var(--surface); border: 1px solid var(--line); border-radius: 16px; overflow: hidden; }
+  .drawbar .hint { font-size: 17px; font-weight: 600; }
+  .drawbar .seg button { font-size: 15px; }
+  .drawstage { flex: 1; min-height: 0; background: var(--surface); border: 1px solid var(--line); border-radius: 16px; overflow: hidden; position: relative; }
   .drawstage canvas { display: block; }
+  .rofs { display: contents; }
+  .rofs:disabled .ci .btn { display: none; }
+  .rofbadge { font-size: 12px; font-weight: 700; color: var(--warn); background: var(--warn-soft); border-radius: 999px; padding: 2px 8px; white-space: nowrap; }
+  .drawhint { position: absolute; left: 50%; top: 40%; transform: translate(-50%, -50%); background: var(--surface); border: 1px solid var(--line); border-radius: 14px; padding: 14px 22px; font-size: 20px; font-weight: 700; color: var(--brand); box-shadow: 0 6px 24px rgb(0 0 0 / .12); text-align: center; max-width: calc(100% - 32px); pointer-events: none; }
   .chip.absent::after { content: "미출석"; font-size: 10px; font-weight: 700; color: var(--sub); background: var(--surface); border-radius: 4px; padding: 0 4px; }
   .chips .none { font-size: 13px; color: var(--sub); align-self: center; }
   .pool { background: var(--surface); border: 1.5px dashed var(--line); border-radius: 14px; padding: 12px 14px; display: flex; flex-direction: column; gap: 10px; }
@@ -484,7 +490,7 @@
   .card.F .g { background: var(--female); }
   .card .name { font-size: 22px; font-weight: 700; line-height: 1.2; }
   .card .nl { display: flex; align-items: baseline; gap: 6px; flex-wrap: wrap; min-width: 0; }
-  .card .nl .grpn { color: var(--brand); font-weight: 700; font-size: 15px; }
+  .card .nl .grpn { flex: none; align-self: center; color: var(--brand); background: var(--brand-soft); border-radius: 999px; padding: 1px 8px; font-weight: 700; font-size: 13px; line-height: 1.4; white-space: nowrap; }
   .card .nl .dup { color: var(--warn); font-weight: 700; font-size: 12px; }
   .card .ft { margin-top: auto; display: flex; align-items: center; justify-content: space-between; gap: 6px; }
   .card .ph { font-size: 13px; color: var(--sub); margin-right: auto; }
@@ -660,8 +666,9 @@
     .card .cbody { padding: 7px 8px 6px 11px; min-height: 62px; gap: 2px; }
     .card .name { font-size: 17px; }
     .card .nl { gap: 4px; flex-wrap: nowrap; overflow: hidden; }
-    .card .nl .grpn { font-size: 13px; }
-    .card .nl .dup { font-size: 10px; white-space: nowrap; }
+    .card .name { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .card .nl .grpn { font-size: 11px; padding: 0 6px; }
+    .card .nl .dup { flex: none; font-size: 10px; white-space: nowrap; }
     .card .ph { font-size: 11px; }
     .card .st { font-size: 11px; padding: 2px 7px; }
     .card .cf { font-size: 10px; padding: 1px 4px; }

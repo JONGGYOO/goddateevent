@@ -5,7 +5,7 @@ import type { FunctionReturnType } from "convex/server";
 import { toast } from "sonner";
 import { api } from "@/convex/_generated/api";
 import type { Id } from "@/convex/_generated/dataModel";
-import { useAM, useAQ } from "@/components/admin";
+import { AdminOnly, useAM, useAQ } from "@/components/admin";
 import { Loading } from "@/components/kit";
 import { MAX_LABEL, normalizeKey } from "@/lib/codes";
 import { errInfo } from "@/lib/errors";
@@ -34,6 +34,7 @@ export default function CodesPage() {
         <div className="codesplit">
           <div className="stack" style={{ gap: 10 }}>
             {data.missing.length > 0 && (
+              <AdminOnly>
               <div className="notice">
                 <p>기본 그룹 {data.missing.map((m) => `‘${m.name}’`).join(", ")}이 없어요.</p>
                 <div className="actions">
@@ -50,6 +51,7 @@ export default function CodesPage() {
                   </button>
                 </div>
               </div>
+              </AdminOnly>
             )}
             <div className="box list grplist" role="list" aria-label="코드 그룹">
               {groups.length ? (
@@ -83,6 +85,7 @@ export default function CodesPage() {
                 <div className="empty flat">아직 그룹이 없어요.</div>
               )}
             </div>
+            <AdminOnly>
             {adding ? (
               <GroupForm onDone={(id) => (setAdding(false), id && setPicked(id))} />
             ) : (
@@ -90,6 +93,7 @@ export default function CodesPage() {
                 + 그룹 추가
               </button>
             )}
+            </AdminOnly>
           </div>
           {cur ? <GroupPanel key={cur._id} groupId={cur._id} /> : <div className="empty">왼쪽에서 그룹을 추가하세요.</div>}
         </div>
@@ -224,6 +228,7 @@ function GroupPanel({ groupId }: { groupId: Id<"codeGroups"> }) {
               {group.description && ` · ${group.description}`}
             </div>
           </div>
+          <AdminOnly>
           <div className="acts">
             <button className="btn ghost sm" type="button" onClick={() => setEditing(true)}>
               그룹 수정
@@ -234,6 +239,7 @@ function GroupPanel({ groupId }: { groupId: Id<"codeGroups"> }) {
               </button>
             )}
           </div>
+          </AdminOnly>
         </div>
       )}
       {confirmDel && (
@@ -260,6 +266,7 @@ function GroupPanel({ groupId }: { groupId: Id<"codeGroups"> }) {
         </div>
       )}
 
+      <AdminOnly>
       <form className="inform codeadd" onSubmit={add} noValidate autoComplete="off">
         <div className="field">
           <label htmlFor="cLabel">코드 추가</label>
@@ -277,6 +284,7 @@ function GroupPanel({ groupId }: { groupId: Id<"codeGroups"> }) {
         </button>
         {err && <p className="errline">{err}</p>}
       </form>
+      </AdminOnly>
 
       <div className="box list">
         {codes.length ? (
@@ -319,6 +327,7 @@ function CodeRow({ code, first, last }: { code: CodeData; first: boolean; last: 
 
   return (
     <div className={`it coderow ${code.active ? "" : "off"} ${mode !== "view" ? "busy" : ""}`}>
+      <AdminOnly>
       <div className="ord">
         <button className="btn ghost sm" type="button" aria-label="위로" disabled={first} onClick={() => run(move({ id: code._id, dir: -1 }))}>
           ▲
@@ -327,6 +336,7 @@ function CodeRow({ code, first, last }: { code: CodeData; first: boolean; last: 
           ▼
         </button>
       </div>
+      </AdminOnly>
       {mode === "edit" ? (
         <div className="field">
           <input
@@ -383,7 +393,7 @@ function CodeRow({ code, first, last }: { code: CodeData; first: boolean; last: 
             </button>
           </>
         ) : (
-          <>
+          <AdminOnly>
             <span className="viewacts">
               <button className="btn ghost sm" type="button" onClick={toggleActive}>
                 {code.active ? "사용 안 함" : "다시 사용"}
@@ -402,7 +412,7 @@ function CodeRow({ code, first, last }: { code: CodeData; first: boolean; last: 
                 ["삭제", () => setMode("del")],
               ]}
             />
-          </>
+          </AdminOnly>
         )}
       </div>
       {err && <p className="errline">{err}</p>}

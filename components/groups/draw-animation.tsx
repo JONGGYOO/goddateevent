@@ -60,10 +60,13 @@ export function DrawAnimation({
 }) {
   const stageRef = useRef<HTMLDivElement>(null);
   const cvRef = useRef<HTMLCanvasElement>(null);
-  const speedRef = useRef(1);
+  const speedRef = useRef(0.5);
   const skipRef = useRef<() => void>(() => {});
-  const [speed, setSpeed] = useState(1);
-  const [done, setDone] = useState(false);
+  const toggleRef = useRef<() => void>(() => {}); // 시작 ↔ 멈춤 (버튼·↓ 키)
+  const [speed, setSpeed] = useState<number>(0.5); // 기본 0.5배속 (천천히 보여 주기)
+  // ready: 시작 전(빈 보드) / playing / paused / done
+  const [phase, setPhase] = useState<"ready" | "playing" | "paused" | "done">("ready");
+  const done = phase === "done";
   const [count, setCount] = useState("");
 
   useEffect(() => {
@@ -124,8 +127,8 @@ export function DrawAnimation({
       cv!.style.height = `${H}px`;
       ctx!.setTransform(dpr, 0, 0, dpr, 0, 0);
       const binW = W / k;
-      const binBottom = H - 30;
-      const binH = Math.max(110, Math.min(H * 0.36, maxCount * 17 + 24));
+      const binBottom = H - 40;
+      const binH = Math.max(130, Math.min(H * 0.42, maxCount * 25 + 28));
       const binTop = binBottom - binH;
       const top = 44;
 
@@ -145,11 +148,11 @@ export function DrawAnimation({
         }
       }
       const h = binW / n;
-      const br = Math.max(16, Math.min(30, h * 0.9, rowGap * 1.3)); // 공 반지름 (이름이 잘 읽히게)
+      const br = Math.max(18, Math.min(36, h * 0.95, rowGap * 1.4)); // 공 반지름 (이름이 잘 읽히게)
       const c0 = binW / 2;
       const tb0 = Math.ceil((br - c0) / h);
       const tb1 = Math.floor((W - br - c0) / h);
-      const tagH = Math.max(11, Math.min(22, (binBottom - binTop - 8) / maxCount - 3));
+      const tagH = Math.max(14, Math.min(30, (binBottom - binTop - 8) / maxCount - 3));
       D.L = { W, H, binW, h, br, top, binTop, rowGap, binBottom, tagH, c0, peg: Math.max(2.5, Math.min(4, h * 0.12)) };
       const L = D.L;
 
@@ -297,21 +300,21 @@ export function DrawAnimation({
       c.textBaseline = "middle";
       for (let i = 0; i < k; i++) {
         c.fillStyle = C.ink;
-        c.font = `700 ${L.binW < 80 ? 12 : 15}px ${FONT}`;
-        c.fillText(L.binW < 80 ? `${i + 1}조 ${cnt[i]}` : `${i + 1}조 · ${cnt[i]}명`, (i + 0.5) * L.binW, L.H - 14);
+        c.font = `700 ${L.binW < 80 ? 15 : 19}px ${FONT}`;
+        c.fillText(L.binW < 80 ? `${i + 1}조 ${cnt[i]}` : `${i + 1}조 · ${cnt[i]}명`, (i + 0.5) * L.binW, L.H - 19);
       }
 
       // 칸에 들어간 사람: 이름 태그로 아래부터 쌓임
       placed.forEach((x) => {
         const m = people[x.id];
-        const w = Math.min(L.binW - 10, 130);
+        const w = Math.min(L.binW - 8, 160);
         const y = slotY(x.slot);
         const cx = (x.gi + 0.5) * L.binW;
         rr(cx - w / 2, y - L.tagH / 2, w, L.tagH, 6);
         c.fillStyle = m.g === "M" ? C.Ms : C.Fs;
         c.fill();
         c.fillStyle = m.g === "M" ? C.M : C.F;
-        c.font = `600 ${Math.min(13, L.tagH - 3)}px ${FONT}`;
+        c.font = `700 ${Math.max(11, Math.min(19, L.tagH - 5, (w - 8) / Math.max(2, m.name.length)))}px ${FONT}`;
         c.fillText(m.name, cx, y + 0.5);
       });
 
@@ -325,7 +328,7 @@ export function DrawAnimation({
         c.lineWidth = 2.5;
         c.strokeStyle = C.surf;
         c.stroke();
-        const fs = Math.max(10, Math.min(18, (L.br * 2 - 8) / Math.max(2, m.name.length)));
+        const fs = Math.max(12, Math.min(22, (L.br * 2 - 6) / Math.max(2, m.name.length)));
         c.font = `700 ${fs}px ${FONT}`;
         c.fillStyle = C.surf;
         c.fillText(m.name, p.x, p.y + 0.5);
@@ -337,10 +340,12 @@ export function DrawAnimation({
       }
     }
 
+    let running = false;
     function finish() {
       if (D.done) return;
       D.done = true;
-      setDone(true);
+      running = false;
+      setPhase("done");
     }
     function frame(now: number) {
       if (D.last == null) D.last = now;
@@ -349,10 +354,25 @@ export function DrawAnimation({
       D.T += dt * speedRef.current;
       if (D.T >= D.endAll) finish();
       draw();
-      if (!D.done) D.raf = requestAnimationFrame(frame);
+      if (!D.done && running) D.raf = requestAnimationFrame(frame);
     }
+    function play() {
+      if (D.done || running) return;
+      running = true;
+      D.last = null; // 멈춰 있던 시간은 건너뜀
+      setPhase("playing");
+      D.raf = requestAnimationFrame(frame);
+    }
+    function pause() {
+      if (!running) return;
+      running = false;
+      cancelAnimationFrame(D.raf);
+      setPhase("paused");
+    }
+    toggleRef.current = () => (running ? pause() : play());
     skipRef.current = () => {
       cancelAnimationFrame(D.raf);
+      running = false;
       D.T = D.endAll + 1e7;
       finish();
       draw();
@@ -363,11 +383,9 @@ export function DrawAnimation({
     };
 
     layout();
+    // 시작 버튼(또는 ↓ 키)을 누를 때까지 빈 보드만 보여 준다
     if (matchMedia("(prefers-reduced-motion: reduce)").matches) skipRef.current();
-    else {
-      draw();
-      D.raf = requestAnimationFrame(frame);
-    }
+    else draw();
     addEventListener("resize", onResize);
     return () => {
       cancelAnimationFrame(D.raf);
@@ -378,6 +396,11 @@ export function DrawAnimation({
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if (e.key === "Escape") onClose();
+      // 포인터(프레젠터)의 ↓ 키: 시작 / 멈춤 / 다시 시작
+      else if (e.key === "ArrowDown") {
+        e.preventDefault();
+        if (!e.repeat) toggleRef.current();
+      }
     };
     document.addEventListener("keydown", onKey);
     const prev = document.body.style.overflow;
@@ -402,16 +425,27 @@ export function DrawAnimation({
           ))}
         </div>
         {!done && (
+          <button
+            className={`btn ${phase === "playing" ? "ghost" : ""}`}
+            type="button"
+            aria-keyshortcuts="ArrowDown"
+            onClick={() => toggleRef.current()}
+          >
+            {phase === "ready" ? "▶ 시작" : phase === "playing" ? "❚❚ 멈춤" : "▶ 다시 시작"}
+          </button>
+        )}
+        {!done && (
           <button className="btn ghost" type="button" onClick={() => skipRef.current()}>
             건너뛰기
           </button>
         )}
-        <button className="btn" type="button" onClick={onClose}>
+        <button className={`btn ${done ? "" : "ghost"}`} type="button" onClick={onClose}>
           {done ? "결과 보기" : "닫기"}
         </button>
       </div>
       <div className="drawstage" ref={stageRef}>
         <canvas ref={cvRef} aria-label="이름 공이 핀을 지나 조 칸으로 떨어지는 애니메이션" />
+        {phase === "ready" && <div className="drawhint">‘시작’을 누르거나 ↓ 키를 누르면 시작해요</div>}
       </div>
     </div>
   );

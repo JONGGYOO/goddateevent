@@ -5,7 +5,7 @@ import { useState } from "react";
 import { toast } from "sonner";
 import { api } from "@/convex/_generated/api";
 import type { Doc, Id } from "@/convex/_generated/dataModel";
-import { useAM } from "@/components/admin";
+import { useAM, useCanEdit } from "@/components/admin";
 import { GN, GenderPicker, Modal, ModalTitle, PlateFields, type G } from "@/components/kit";
 import { errInfo } from "@/lib/errors";
 import { MSG_PHONE, normalizePhone } from "@/lib/phone";
@@ -28,6 +28,7 @@ export function MemberEditor({
   const create = useAM(api.members.create);
   const update = useAM(api.members.update);
   const remove = useAM(api.members.remove);
+  const canEdit = useCanEdit(); // 스태프는 보기만
   const isNew = !member;
 
   const [name, setName] = useState(member?.name ?? initial?.name ?? "");
@@ -112,6 +113,7 @@ export function MemberEditor({
           </>
         )}
       </ModalTitle>
+      <fieldset className="rofs" disabled={!canEdit}>
       <div className="sec">
         <h4>기본 정보</h4>
         <div className="field">
@@ -173,7 +175,7 @@ export function MemberEditor({
         ) : (
           <span className="hint">등록된 차량이 없어요.</span>
         )}
-        <PlateFields front={front} back={back} onFront={setFront} onBack={setBack} onAdd={addCar} />
+        {canEdit && <PlateFields front={front} back={back} onFront={setFront} onBack={setBack} onAdd={addCar} />}
         {errs.car && <p className="errmsg">{errs.car}</p>}
       </div>
       <div className="sec">
@@ -182,6 +184,7 @@ export function MemberEditor({
           <textarea rows={2} placeholder="봉사 희망, 특이사항 등" value={memo} onChange={(e) => setMemo(e.target.value)} aria-label="메모" />
         </div>
       </div>
+      </fieldset>
       {member && (
         <button
           className="btn ghost sm"
@@ -196,7 +199,14 @@ export function MemberEditor({
         </button>
       )}
       {errs.form && <p className="errmsg">{errs.form}</p>}
-      {member && confirmDel ? (
+      {!canEdit ? (
+        <div className="actions">
+          <span className="hint l">조회 전용 계정이라 고칠 수 없어요.</span>
+          <button className="btn" type="button" onClick={onClose}>
+            닫기
+          </button>
+        </div>
+      ) : member && confirmDel ? (
         <div className="notice err">
           <p>{member.name}님을 삭제할까요? 모든 행사의 참여·조 편성·출석 기록도 함께 지워집니다.</p>
           <div className="actions">

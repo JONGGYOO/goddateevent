@@ -4,7 +4,7 @@ import { useMemo, useState } from "react";
 import { toast } from "sonner";
 import { api } from "@/convex/_generated/api";
 import type { Id } from "@/convex/_generated/dataModel";
-import { useAM, useAQ } from "@/components/admin";
+import { useAM, useAQ, useCanEdit } from "@/components/admin";
 import { G_OPTIONS, GN, Hl, Loading, Modal, ModalTitle, SearchBox, Seg, countNames, type G, type GFilter } from "@/components/kit";
 import { useEvent } from "@/components/events/event-context";
 import { koCompare, matchAt } from "@/lib/hangul";
@@ -24,6 +24,7 @@ export default function ParticipantsTab() {
   const addMany = useAM(api.participants.addMany);
   const removeP = useAM(api.participants.remove);
   const setLocked = useAM(api.participants.setLocked);
+  const canEdit = useCanEdit(); // 스태프는 확정 인원만 본다
   const [g, setG] = useState<GFilter>("ALL");
   const [q, setQ] = useState("");
   const [picked, setPicked] = useState<Set<Id<"members">>>(new Set());
@@ -84,11 +85,13 @@ export default function ParticipantsTab() {
 
   return (
     <>
+      {canEdit && (
       <p className="hint" style={{ margin: 0 }}>
         회원 명부에서 이 행사에 참여할 사람을 골라 추가합니다. 추가한 인원만 조 편성과 출석체크 명단에 나옵니다. 다 고른 뒤 ‘인원 확정’을
         누르면 실수로 바뀌지 않게 잠겨요.
       </p>
-      {locked && (
+      )}
+      {locked && canEdit && (
         <div className="notice lockbar">
           <p>참여 인원이 확정돼 있어요. 추가하거나 빼려면 ‘확정 취소’를 누르세요. (현장 등록은 확정 중에도 돼요)</p>
           <button className="btn ghost sm" type="button" disabled={busy} onClick={() => lock(false)}>
@@ -96,7 +99,8 @@ export default function ParticipantsTab() {
           </button>
         </div>
       )}
-      <div className="two">
+      <div className={canEdit ? "two" : ""}>
+        {canEdit && (
         <section className={`box pane ${locked ? "locked" : ""}`}>
           <h2>회원 명부에서 선택</h2>
           <div className="controls">
@@ -157,6 +161,7 @@ export default function ParticipantsTab() {
             )}
           </div>
         </section>
+        )}
 
         <section className="box pane">
           <h2>
@@ -168,7 +173,7 @@ export default function ParticipantsTab() {
             <span className="spacer" />
             {locked ? (
               <span className="pill ok">확정됨</span>
-            ) : (
+            ) : !canEdit ? null : (
               <button className="btn sm" type="button" disabled={busy || !parts?.length} onClick={() => lock(true)}>
                 인원 확정
               </button>
@@ -190,7 +195,7 @@ export default function ParticipantsTab() {
                         <span className={`rchip ${gg}`} key={p._id}>
                           {p.name}
                           {p.phone && <span className="tl num">{p.phone.slice(-4)}</span>}
-                          {!locked && (
+                          {!locked && canEdit && (
                             <button
                               type="button"
                               aria-label={`${p.name} 빼기`}

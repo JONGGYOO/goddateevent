@@ -28,9 +28,10 @@ async function TokenGate({ children }: { children: ReactNode }) {
   // 토큰 만료 확인에 현재 시각이 필요하므로 요청 시점 렌더링으로 둔다.
   await connection();
   const token = (await cookies()).get(SESSION_COOKIE)?.value ?? "";
-  if (!(await verifyToken(process.env.SESSION_SECRET, token))) redirect("/login");
+  const role = await verifyToken(process.env.SESSION_SECRET, token);
+  if (!role) redirect("/login");
   return (
-    <AdminProviders token={token}>
+    <AdminProviders token={token} role={role}>
       <AppBar />
       <main className="app">{children}</main>
     </AdminProviders>

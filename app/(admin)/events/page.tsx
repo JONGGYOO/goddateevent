@@ -5,7 +5,7 @@ import { useState, type FormEvent } from "react";
 import { toast } from "sonner";
 import { api } from "@/convex/_generated/api";
 import type { Id } from "@/convex/_generated/dataModel";
-import { useAM, useAQ, useToday } from "@/components/admin";
+import { AdminOnly, useAM, useAQ, useToday } from "@/components/admin";
 import { Loading } from "@/components/kit";
 import { errInfo } from "@/lib/errors";
 import { fmtSession } from "@/lib/date";
@@ -54,6 +54,7 @@ export default function EventsPage() {
           <h1>행사관리</h1>
         </div>
       </div>
+      <AdminOnly>
       <form className="inform" onSubmit={submit} noValidate autoComplete="off">
         <div className="field">
           <label htmlFor="evNo">
@@ -90,6 +91,7 @@ export default function EventsPage() {
         </button>
         {err && <p className="errline">{err.message}</p>}
       </form>
+      </AdminOnly>
 
       {!events ? (
         <Loading />
@@ -129,6 +131,7 @@ export default function EventsPage() {
                     </div>
                   </div>
                   <div className="acts" onClick={(x) => x.stopPropagation()} onKeyDown={(x) => x.stopPropagation()}>
+                    <AdminOnly>
                     <button
                       className="btn ghost sm"
                       type="button"
@@ -149,6 +152,7 @@ export default function EventsPage() {
                     >
                       삭제
                     </button>
+                    </AdminOnly>
                     <button className="btn sm" type="button" onClick={() => router.push(`/events/${e._id}/participants`)}>
                       열기
                     </button>

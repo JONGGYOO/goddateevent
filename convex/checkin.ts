@@ -1,7 +1,7 @@
 import { ConvexError, v } from "convex/values";
 import type { Id } from "./_generated/dataModel";
 import type { MutationCtx } from "./_generated/server";
-import { adminMutation, adminQuery } from "./lib/auth";
+import { adminQuery, checkMutation } from "./lib/auth";
 import { gender } from "./schema";
 import {
   MAX_ROWS,
@@ -139,7 +139,7 @@ const findCarCheck = (ctx: MutationCtx, sessionId: Id<"sessions">, memberId: Id<
     .first();
 
 /** 출석 (멱등): 이미 출석이면 기존 값을 그대로 돌려준다 */
-export const checkIn = adminMutation({
+export const checkIn = checkMutation({
   args: { sessionId: v.id("sessions"), memberId: v.id("members") },
   handler: async (ctx, { sessionId, memberId }) => {
     const { member } = await requireParticipant(ctx, sessionId, memberId);
@@ -156,7 +156,7 @@ export const checkIn = adminMutation({
 });
 
 /** 출석 취소. undo=true(토스트 되돌리기)면 방금 남긴 출석 로그를 지우고, 아니면 "출석 취소" 로그를 남긴다 */
-export const cancelCheckIn = adminMutation({
+export const cancelCheckIn = checkMutation({
   args: { sessionId: v.id("sessions"), memberId: v.id("members"), undo: v.optional(v.boolean()) },
   handler: async (ctx, { sessionId, memberId, undo }) => {
     const existing = await findAttendance(ctx, sessionId, memberId);
@@ -187,7 +187,7 @@ async function doCarIn(ctx: MutationCtx, sessionId: Id<"sessions">, memberId: Id
 }
 
 /** 등록된 차량 도착 체크 */
-export const carIn = adminMutation({
+export const carIn = checkMutation({
   args: { sessionId: v.id("sessions"), memberId: v.id("members"), plate: v.string() },
   handler: async (ctx, { sessionId, memberId, plate }) => {
     const { member } = await requireParticipant(ctx, sessionId, memberId);
@@ -198,7 +198,7 @@ export const carIn = adminMutation({
 });
 
 /** 차량 도착 취소. undo=true면 방금 남긴 도착 로그를 지운다 */
-export const carOut = adminMutation({
+export const carOut = checkMutation({
   args: { sessionId: v.id("sessions"), memberId: v.id("members"), undo: v.optional(v.boolean()) },
   handler: async (ctx, { sessionId, memberId, undo }) => {
     const existing = await findCarCheck(ctx, sessionId, memberId);
@@ -220,7 +220,7 @@ export const carOut = adminMutation({
 });
 
 /** 미등록 차량: 회원 차량에 저장하고 도착 체크 */
-export const registerPlateAndCarIn = adminMutation({
+export const registerPlateAndCarIn = checkMutation({
   args: { sessionId: v.id("sessions"), memberId: v.id("members"), plate: v.string() },
   handler: async (ctx, { sessionId, memberId, plate }) => {
     const { member } = await requireParticipant(ctx, sessionId, memberId);
@@ -235,7 +235,7 @@ export const registerPlateAndCarIn = adminMutation({
 });
 
 /** 출석 메모 저장: 공통코드(CHECK_MEMO 등) 선택 + 짧은 글. 둘 다 비우면 메모를 지운다 */
-export const setMemo = adminMutation({
+export const setMemo = checkMutation({
   args: {
     sessionId: v.id("sessions"),
     memberId: v.id("members"),
@@ -268,7 +268,7 @@ export const setMemo = adminMutation({
 });
 
 /** 현장 등록: 회원 생성 → 참여자 추가 → 출석 → (차량 입력 시) 차량 등록·도착 */
-export const walkIn = adminMutation({
+export const walkIn = checkMutation({
   args: {
     sessionId: v.id("sessions"),
     name: v.string(),

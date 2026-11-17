@@ -5,7 +5,7 @@ import { useState } from "react";
 import { toast } from "sonner";
 import { api } from "@/convex/_generated/api";
 import type { Id } from "@/convex/_generated/dataModel";
-import { useAM, useAQ } from "@/components/admin";
+import { AdminOnly, useAM, useAQ } from "@/components/admin";
 import { GN, Loading, Modal, ModalTitle } from "@/components/kit";
 import { CHECK_MEMO, MAX_MEMO_TEXT, isLateLabel } from "@/lib/codes";
 import { fmtHm, hm, seoulHour } from "@/lib/date";
@@ -92,6 +92,7 @@ export function MemoSheet({
             <Link className="btn ghost sm" href="/codes">
               공통코드 화면으로
             </Link>
+            <AdminOnly>
             <button
               className="btn sm"
               type="button"
@@ -99,6 +100,7 @@ export function MemoSheet({
             >
               기본 코드 만들기
             </button>
+            </AdminOnly>
           </div>
         </div>
       ) : (

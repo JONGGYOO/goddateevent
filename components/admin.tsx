@@ -6,18 +6,32 @@ import { useRouter } from "next/navigation";
 import { createContext, useCallback, useContext, useEffect, useState, type ReactNode } from "react";
 import { toast } from "sonner";
 import { errInfo } from "@/lib/errors";
+import type { Role } from "@/lib/token";
 
 const convex = new ConvexReactClient(process.env.NEXT_PUBLIC_CONVEX_URL!);
 
 const TokenCtx = createContext<string | null>(null);
+const RoleCtx = createContext<Role>("admin");
 
-/** 관리자 화면 공통 Provider: Convex 클라이언트 + 세션 토큰 */
-export function AdminProviders({ token, children }: { token: string; children: ReactNode }) {
+/** 관리자 화면 공통 Provider: Convex 클라이언트 + 세션 토큰 + 역할 */
+export function AdminProviders({ token, role, children }: { token: string; role: Role; children: ReactNode }) {
   return (
     <ConvexProvider client={convex}>
-      <TokenCtx.Provider value={token}>{children}</TokenCtx.Provider>
+      <TokenCtx.Provider value={token}>
+        <RoleCtx.Provider value={role}>{children}</RoleCtx.Provider>
+      </TokenCtx.Provider>
     </ConvexProvider>
   );
+}
+
+/** 관리자면 true. 스태프(조회 + 출석체크만)는 false → 입력·변경 버튼을 숨긴다 */
+export function useCanEdit(): boolean {
+  return useContext(RoleCtx) === "admin";
+}
+
+/** 관리자에게만 보이는 부분 (서버도 adminMutation으로 따로 막는다) */
+export function AdminOnly({ children }: { children: ReactNode }) {
+  return useCanEdit() ? <>{children}</> : null;
 }
 
 export function useAdminToken(): string {
